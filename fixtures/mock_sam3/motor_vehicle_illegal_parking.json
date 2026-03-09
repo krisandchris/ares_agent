@@ -1,0 +1,10 @@
+{
+  "mask_uri": "s3://mock-evidence/motor_vehicle_illegal_parking_mask.png",
+  "crop_image_uris": [
+    "s3://mock-evidence/motor_vehicle_illegal_parking_crop_1.png"
+  ],
+  "overlay_image_uris": [
+    "s3://mock-evidence/motor_vehicle_illegal_parking_overlay.png"
+  ],
+  "evidence_basis_summary": "the motor vehicle body overlaps the sidewalk boundary rather than a marked parking area"
+}

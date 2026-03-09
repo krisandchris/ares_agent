@@ -1,0 +1,13 @@
+{
+  "suspected_categories": ["unauthorized_electrical_wiring"],
+  "risk_level": "high",
+  "prelim_confidence": 0.93,
+  "need_retake": false,
+  "open_risk_hints": [],
+  "evidence_targets": [
+    "wire",
+    "charger",
+    "electric_vehicle",
+    "outdoor_connection"
+  ]
+}

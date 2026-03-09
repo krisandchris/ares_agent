@@ -1,0 +1,11 @@
+{
+  "final_category": "motor_vehicle_illegal_parking",
+  "final_confidence": 0.92,
+  "evidence_basis_match": true,
+  "violation_relation_confirmed": true,
+  "exception_excluded": true,
+  "archive_readiness": true,
+  "review_required": false,
+  "rejection_reason": null,
+  "violation_relation_summary": "the motor vehicle occupies sidewalk space outside a marked parking area"
+}

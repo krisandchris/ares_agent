@@ -1,0 +1,25 @@
+agent:
+  service_name: street-inspection-agent
+
+orchestrator:
+  enable_async_refine: true
+
+callback:
+  plugin: http_callback
+  endpoint: https://backend.example/api/v1/events/callback
+  auth_token:
+  auth_token_env:
+  timeout_ms: 3000
+  retry:
+    max_attempts: 3
+    backoff_ms: 1000
+  send_preliminary: true
+  send_refined: true
+
+mock_clients:
+  preliminary_fixture: ../fixtures/mock_vlm_preliminary/road_occupying_vendor.json
+  segmentation_fixture: ../fixtures/mock_sam3/road_occupying_vendor.json
+  evidence_judge_fixture: ../fixtures/mock_vlm_judge/road_occupying_vendor.json
+
+review:
+  enable_manual_review: true

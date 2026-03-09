@@ -1,0 +1,250 @@
+"""Agno workflow for one inspection event."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from typing import Any, Protocol
+
+from agno.workflow import Step, Workflow
+from agno.workflow.types import StepInput, StepOutput
+from pydantic import BaseModel, Field
+
+from ares_agent.domain.events import EventSeed, generate_event_id
+from ares_agent.domain.evidence import EvidencePackage
+from ares_agent.services.feedback import build_preliminary_feedback, build_refined_feedback
+
+
+class PreliminaryResult(BaseModel):
+    """Output from the first VLM pass."""
+
+    suspected_categories: list[str]
+    risk_level: str
+    prelim_confidence: float = Field(ge=0.0, le=1.0)
+    need_retake: bool
+    open_risk_hints: list[str] = Field(default_factory=list)
+    evidence_targets: list[str] = Field(default_factory=list)
+
+
+class SegmentationResult(BaseModel):
+    """Evidence extraction output from SAM3."""
+
+    mask_uri: str | None = None
+    crop_image_uris: list[str] = Field(default_factory=list)
+    overlay_image_uris: list[str] = Field(default_factory=list)
+    evidence_basis_summary: str
+
+
+class EvidenceJudgeResult(BaseModel):
+    """Rule-grounded evidence validation from the second VLM."""
+
+    final_category: str
+    final_confidence: float = Field(ge=0.0, le=1.0)
+    evidence_basis_match: bool
+    violation_relation_confirmed: bool
+    exception_excluded: bool
+    archive_readiness: bool
+    review_required: bool
+    rejection_reason: str | None = None
+    violation_relation_summary: str | None = None
+
+
+class PreliminaryClient(Protocol):
+    """Client for the synchronous VLM pass."""
+
+    def analyze(self, seed: EventSeed) -> PreliminaryResult:
+        """Perform the initial classification pass."""
+
+
+class SegmentationClient(Protocol):
+    """Client for evidence segmentation."""
+
+    def segment(self, event_id: str, targets: list[str]) -> SegmentationResult:
+        """Extract evidence material for the event."""
+
+
+class EvidenceJudgeClient(Protocol):
+    """Client for post-segmentation evidence judgment."""
+
+    def judge(
+        self,
+        *,
+        event_id: str,
+        category_code: str,
+        evidence_basis_summary: str,
+    ) -> EvidenceJudgeResult:
+        """Judge whether the evidence supports the candidate category."""
+
+
+class SinkPlugin(Protocol):
+    """Callback adapter for the backend management service."""
+
+    def send(self, event_payload: object, runtime_config: object) -> object:
+        """Deliver a workflow result payload."""
+
+
+@dataclass
+class WorkflowStageError(RuntimeError):
+    """Wrap a step failure so the API layer can recover structured details."""
+
+    cause_type: str
+    message: str
+
+    def __str__(self) -> str:
+        return f"{self.cause_type}: {self.message}"
+
+
+def _wrap_stage_error(exc: Exception) -> WorkflowStageError:
+    if isinstance(exc, WorkflowStageError):
+        return exc
+    return WorkflowStageError(cause_type=exc.__class__.__name__, message=str(exc))
+
+
+def _ensure_callback_success(stage_name: str, callback_result: object) -> None:
+    success = getattr(callback_result, "success", True)
+    if success:
+        return
+    status_code = getattr(callback_result, "status_code", "unknown")
+    error_message = getattr(callback_result, "error_message", None)
+    suffix = f": {error_message}" if error_message else ""
+    raise WorkflowStageError(
+        cause_type="RuntimeError",
+        message=f"{stage_name} callback failed with status {status_code}{suffix}",
+    )
+
+
+def _preliminary_step_factory(
+    *,
+    preliminary_client: PreliminaryClient,
+    sink_plugin: SinkPlugin,
+    runtime_config: object,
+) -> Step:
+    def run(step_input: StepInput) -> StepOutput:
+        try:
+            seed = EventSeed.model_validate(step_input.input)
+            event_id = generate_event_id(seed)
+            preliminary = preliminary_client.analyze(seed)
+            feedback = build_preliminary_feedback(
+                event_id=event_id,
+                frame_id=seed.frame_id,
+                suspected_categories=preliminary.suspected_categories,
+                risk_level=preliminary.risk_level,
+                prelim_confidence=preliminary.prelim_confidence,
+                need_retake=preliminary.need_retake,
+                async_enqueued=True,
+            )
+            callback_result = sink_plugin.send(feedback, runtime_config)
+            _ensure_callback_success("preliminary", callback_result)
+            return StepOutput(
+                content={
+                    "event_id": event_id,
+                    "frame_seed": seed.model_dump(),
+                    "preliminary": preliminary.model_dump(),
+                    "preliminary_feedback": feedback.model_dump(),
+                }
+            )
+        except Exception as exc:
+            raise _wrap_stage_error(exc) from exc
+
+    return Step(name="preliminary", executor=run, max_retries=0)
+
+
+def _segmentation_step_factory(*, segmentation_client: SegmentationClient) -> Step:
+    def run(step_input: StepInput) -> StepOutput:
+        try:
+            preliminary_content = step_input.get_step_content("preliminary") or {}
+            event_id = preliminary_content["event_id"]
+            preliminary = preliminary_content["preliminary"]
+            segmentation = segmentation_client.segment(event_id, preliminary["evidence_targets"])
+            return StepOutput(
+                content={
+                    **preliminary_content,
+                    "segmentation": segmentation.model_dump(),
+                }
+            )
+        except Exception as exc:
+            raise _wrap_stage_error(exc) from exc
+
+    return Step(name="segmentation", executor=run, max_retries=0)
+
+
+def _evidence_judge_step_factory(
+    *,
+    evidence_judge_client: EvidenceJudgeClient,
+    sink_plugin: SinkPlugin,
+    runtime_config: object,
+) -> Step:
+    def run(step_input: StepInput) -> StepOutput:
+        try:
+            segmentation_content = step_input.get_step_content("segmentation") or {}
+            event_id = segmentation_content["event_id"]
+            preliminary = segmentation_content["preliminary"]
+            segmentation = segmentation_content["segmentation"]
+            final_category = preliminary["suspected_categories"][0]
+            judgment = evidence_judge_client.judge(
+                event_id=event_id,
+                category_code=final_category,
+                evidence_basis_summary=segmentation["evidence_basis_summary"],
+            )
+            refined_feedback = build_refined_feedback(
+                event_id=event_id,
+                frame_id=segmentation_content["frame_seed"]["frame_id"],
+                final_category=judgment.final_category,
+                final_confidence=judgment.final_confidence,
+                archive_readiness=judgment.archive_readiness,
+                review_required=judgment.review_required,
+                event_version=2,
+            )
+            callback_result = sink_plugin.send(refined_feedback, runtime_config)
+            _ensure_callback_success("refined", callback_result)
+            evidence_package = EvidencePackage(
+                event_id=event_id,
+                crop_image_uris=segmentation["crop_image_uris"],
+                overlay_image_uris=segmentation["overlay_image_uris"],
+                mask_uri=segmentation["mask_uri"],
+                evidence_basis_summary=segmentation["evidence_basis_summary"],
+                archive_readiness=judgment.archive_readiness,
+                rejection_reason=judgment.rejection_reason,
+            )
+            return StepOutput(
+                content={
+                    "event_id": event_id,
+                    "stage": "refined",
+                    "preliminary_feedback": segmentation_content["preliminary_feedback"],
+                    "refined_feedback": refined_feedback.model_dump(),
+                    "evidence_package": evidence_package.model_dump(),
+                    "judgment": judgment.model_dump(),
+                }
+            )
+        except Exception as exc:
+            raise _wrap_stage_error(exc) from exc
+
+    return Step(name="evidence_judge", executor=run, max_retries=0)
+
+
+def build_inspection_event_workflow(
+    *,
+    preliminary_client: PreliminaryClient,
+    segmentation_client: SegmentationClient,
+    evidence_judge_client: EvidenceJudgeClient,
+    sink_plugin: SinkPlugin,
+    runtime_config: object,
+) -> Workflow:
+    """Create the Agno workflow for one inspection event."""
+    return Workflow(
+        name="Inspection Event Workflow",
+        input_schema=EventSeed,
+        telemetry=False,
+        steps=[
+            _preliminary_step_factory(
+                preliminary_client=preliminary_client,
+                sink_plugin=sink_plugin,
+                runtime_config=runtime_config,
+            ),
+            _segmentation_step_factory(segmentation_client=segmentation_client),
+            _evidence_judge_step_factory(
+                evidence_judge_client=evidence_judge_client,
+                sink_plugin=sink_plugin,
+                runtime_config=runtime_config,
+            ),
+        ],
+    )

@@ -1,0 +1,11 @@
+{
+  "final_category": "goods_blocking_road",
+  "final_confidence": 0.89,
+  "evidence_basis_match": true,
+  "violation_relation_confirmed": true,
+  "exception_excluded": true,
+  "archive_readiness": true,
+  "review_required": false,
+  "rejection_reason": null,
+  "violation_relation_summary": "goods are placed on the sidewalk and narrow the pedestrian passage"
+}

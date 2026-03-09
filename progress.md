@@ -1,0 +1,72 @@
+# Progress
+
+## 2026-03-09
+- Loaded and followed `using-superpowers`, `brainstorming`, and `planning-with-files` skill instructions.
+- Checked project state: directory is effectively empty except for `.venv`.
+- Confirmed there is no local Git history or existing architecture to inherit.
+- Initialized planning files for this design session.
+- Confirmed the backend should be hybrid rather than purely real-time or purely offline.
+- Confirmed the backend must produce both event-stream outputs and evidence packages.
+- Captured the initial violation taxonomy and the need for open-risk support.
+- Captured a key orchestration constraint: business actions must be pluginized and config-driven.
+- Presented three backend architecture options.
+- Confirmed the user wants the layered orchestration backend.
+- Presented the overall architecture and responsibility split.
+- User accepted the first design section.
+- Presented the task flow section, then received a correction from the user.
+- Next step: revise the asynchronous evidence pipeline to include VLM verification over SAM3 visualization outputs before archival.
+- Received a second correction refining what the post-segmentation VLM should judge.
+- Next step: replace the generic `segmentation_valid` concept with category-grounded evidence verification outputs.
+- Loaded the user's formal violation definitions to refine the post-segmentation verification stage.
+- Next step: present a corrected evidence-verification schema aligned to these category definitions.
+- Presented the corrected category-grounded evidence verification logic.
+- User accepted the correction.
+- Presented the output-schema direction, then received a boundary correction on plugin responsibility.
+- Refined the plugin boundary to a backend-management callback adapter.
+- Added a new callback constraint: sync and async results for the same frame must share one `event_id`.
+- Consolidated the full design into a formal document under `docs/plans/`.
+- Expanded the design with state machine, runtime configuration, exception handling, and testing sections.
+- Broke the design into an implementable module inventory.
+- Compared orchestration frameworks and selected `Temporal + FastAPI`.
+- The user corrected the selection scope: framework choice must be made only among `AgentScope`, `Dify`, and `Agno`.
+- Compared the official GitHub/docs positioning of `AgentScope`, `Dify`, and `Agno`.
+- Produced a revised recommendation memo favoring `Agno`, with `AgentScope` as the second choice.
+- Started implementation of an Agno-based project skeleton.
+- Wrote tests first for three core guarantees:
+  - config loading
+  - stable event id generation
+  - shared event id across sync and async feedback
+- Implemented the minimal package structure and supporting modules.
+- Generated `uv.lock`.
+- Verified with `uv run pytest tests/unit` -> 4 tests passed.
+- Added workflow-first tests for the main inspection chain.
+- Implemented `build_inspection_event_workflow()` as an actual Agno workflow with three ordered steps and two callbacks.
+- Verified with `uv run pytest tests/unit` -> 6 tests passed.
+- Added JSON-backed mock model client adapters for VLM-1, SAM3, and VLM-2.
+- Added an injectable `HttpCallbackPlugin`.
+- Verified with `uv run pytest tests/unit` -> 11 tests passed.
+- Added FastAPI ingestion tests first, then implemented the route.
+- Wired `POST /v1/inspection-items` to the mock Agno workflow.
+- Verified with `uv run pytest tests/unit` -> 13 tests passed.
+- Added config-bootstrap tests first, then moved app startup from hardcoded fixture paths to YAML-driven composition.
+- Verified with `uv run pytest tests/unit` -> 15 tests passed.
+- Added parameterized mock-client tests first for multiple categories.
+- Added 9 more fixture files covering three additional violation classes.
+- Verified with `uv run pytest tests/unit` -> 24 tests passed.
+- Paused feature expansion to assess current-version TODOs before continuing.
+- Wrote the current-version P0/P1 backlog into the planning files to prevent uncontrolled feature drift.
+- Completed P0:
+  - ingestion now requires `image_uri`
+  - event results are stored in memory by `event_id`
+  - callback/fixture failures return structured failed payloads
+  - README includes setup/run/example request
+- Updated `uv.lock` after adding `uvicorn`.
+- Verified with `uv run pytest tests/unit` -> 28 tests passed.
+- Completed P1:
+  - extracted API schemas
+  - extended callback config contract
+  - added event query route
+  - added integration-style HTTP roundtrip tests
+- Verified with `uv run pytest tests/unit` -> 36 tests passed.
+- Added local VLM/SAM3 stub endpoints and HTTP-style clients that simulate deployed services.
+- Verified with `uv run pytest tests/unit` -> 40 tests passed.

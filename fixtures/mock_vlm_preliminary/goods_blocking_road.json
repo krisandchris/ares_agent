@@ -1,0 +1,12 @@
+{
+  "suspected_categories": ["goods_blocking_road"],
+  "risk_level": "medium",
+  "prelim_confidence": 0.84,
+  "need_retake": false,
+  "open_risk_hints": [],
+  "evidence_targets": [
+    "goods_or_materials",
+    "sidewalk",
+    "passage_obstruction"
+  ]
+}

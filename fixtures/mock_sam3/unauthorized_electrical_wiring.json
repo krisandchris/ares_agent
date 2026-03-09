@@ -1,0 +1,10 @@
+{
+  "mask_uri": "s3://mock-evidence/unauthorized_electrical_wiring_mask.png",
+  "crop_image_uris": [
+    "s3://mock-evidence/unauthorized_electrical_wiring_crop_1.png"
+  ],
+  "overlay_image_uris": [
+    "s3://mock-evidence/unauthorized_electrical_wiring_overlay.png"
+  ],
+  "evidence_basis_summary": "a charging wire extends from the storefront to an electric vehicle parked outdoors"
+}

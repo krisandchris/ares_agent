@@ -1,0 +1,10 @@
+{
+  "mask_uri": "s3://mock-evidence/road_occupying_vendor_mask.png",
+  "crop_image_uris": [
+    "s3://mock-evidence/road_occupying_vendor_crop_1.png"
+  ],
+  "overlay_image_uris": [
+    "s3://mock-evidence/road_occupying_vendor_overlay.png"
+  ],
+  "evidence_basis_summary": "goods and stall cross the storefront boundary and occupy the sidewalk area"
+}

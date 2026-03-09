@@ -1,0 +1,11 @@
+{
+  "suspected_categories": ["motor_vehicle_illegal_parking"],
+  "risk_level": "high",
+  "prelim_confidence": 0.9,
+  "need_retake": false,
+  "open_risk_hints": [],
+  "evidence_targets": [
+    "motor_vehicle",
+    "sidewalk_or_bus_stop_or_unmarked_area"
+  ]
+}

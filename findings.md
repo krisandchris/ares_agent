@@ -1,0 +1,202 @@
+# Findings
+
+## 2026-03-09
+- The repository root `/mnt/lc/LC/ares_xtws/ares_agent` currently contains only a `.venv` directory.
+- There are no existing docs, source files, or commit history in this directory to constrain the backend design.
+- The user already has two key model assets:
+  - A fine-tuned VLM for inspection data understanding
+  - A SAM3 model for instance segmentation of violation evidence
+- The main design problem is backend agent orchestration, not model training.
+- The user chose a hybrid operating mode:
+  - Real-time preliminary judgment for fast response
+  - Asynchronous generation of fine-grained segmentation evidence, structured events, and review-ready outputs
+- The user also wants dual outputs:
+  - machine-readable violation events for downstream systems
+  - human-reviewable evidence packages for audit and enforcement workflows
+- Initial standardized classes are now explicit and span:
+  - roadside occupation / obstruction
+  - illegal parking (motor and nonmotor)
+  - electrical safety
+  - human disorder categories
+  - pet restraint
+  - food hygiene mask compliance
+- The model layer must support both:
+  - closed-set classification on the standardized taxonomy
+  - open-set risk discovery for additional anomalies not covered by the closed taxonomy
+- Downstream actuation must be decoupled from core inference.
+- The system should load business action plugins from configuration at startup, so deployments can selectively enable:
+  - dispatch integrations
+  - notification sinks
+  - case management adapters
+  - archive/export adapters
+- Architecture direction is now chosen:
+  - use a layered orchestration backend
+  - avoid a monolithic single-service pipeline
+  - avoid a free-form multi-agent autonomous system
+- The first validated design section is accepted:
+  - state-machine-driven orchestrator core
+  - model capability layer separated from event/evidence generation
+  - config-driven action plugin layer
+- Data-flow section needs a correction:
+  - SAM3 outputs are not sufficient for archival on their own
+  - the VLM must re-evaluate the segmentation visualization overlay before final event/evidence archival
+  - therefore the asynchronous chain should include a second-stage VLM judgment after segmentation
+- The second-stage VLM judgment must not ask a generic "did segmentation hit the violation subject?"
+- Instead, it should verify category-specific evidence grounds:
+  - whether the segmented evidence elements match the rule basis for that violation class
+  - whether the spatial/semantic relation between those elements actually establishes the violation
+  - whether the evidence is complete enough for archival or action
+- The user's formal category definitions refine the evidence anchors:
+  - `road_occupying_vendor`: stall/shelf/canopy/goods extending beyond storefront and occupying sidewalk/roadway, with exception checks for landscape objects and newspaper-kiosk adjacency
+  - `goods_blocking_road`: goods/materials/signage/trash placed on sidewalk and obstructing passage
+  - `unauthorized_electrical_wiring`: outdoor charging wire/charger connected to an electric vehicle
+  - `motor_vehicle_illegal_parking`: motor vehicle occupying sidewalk, bus stop, or non-marked area
+  - `nonmotor_vehicle_illegal_parking`: unattended e-bike/bicycle/tricycle occupying sidewalk or roadway
+  - `vagrants_blocking_roadway`: disheveled person sitting/lying by or on the road affecting city appearance
+  - `begging_blocking_roadway`: disheveled person with begging tools occupying roadside/road center
+  - `off_leash_dog_nuisance`: pedestrian with pet dog not restrained by leash
+  - `staff_not_wear_mask`: catering merchant staff not wearing a mask
+- The corrected post-segmentation VLM outputs are now aligned to the rule basis:
+  - `evidence_basis_match`
+  - `violation_relation_confirmed`
+  - `exception_excluded`
+  - `archive_readiness`
+- The action/plugin layer is narrower than a general business-bus design.
+- Current plugin responsibility is only to send `violation_event + evidence_package + runtime_config` back to the backend management service.
+- Therefore pluginization is mainly for callback protocol/config flexibility, not for arbitrary downstream business automation.
+- The backend management callback must support both result phases:
+  - synchronous preliminary feedback from the fast path
+  - asynchronous refined feedback from the evidence path
+- For the same input frame, both paths must share one stable `event_id`.
+- The asynchronous path should enrich or update the same logical event instead of creating a second event.
+- A formal design document has been created at `docs/plans/2026-03-09-street-inspection-agent-design.md`.
+- The document now includes:
+  - full architecture summary
+  - dual-path workflow
+  - state machine
+  - runtime configuration structure
+  - exception handling strategy
+  - testing recommendations
+- For implementation planning, the project should be treated as a workflow application rather than a generic LLM-agent product.
+- The previous `Temporal + FastAPI` selection was based on a broader workflow-engine comparison, but the user later constrained the candidate set to:
+  - `AgentScope`
+  - `Dify`
+  - `Agno`
+- Based on official repository/docs material, the revised comparison focus is now multimodal/agent-framework fit rather than general workflow engines.
+- Early comparison signal:
+  - `AgentScope` emphasizes transparent orchestration, explicit message passing, multimodal message blocks, workflow modules, plan/state/session management, and production deployment.
+  - `Dify` emphasizes a production-ready platform with visual canvas workflows, RAG, agent nodes, and multimodal knowledge-base capabilities, but it is more platform-centric and UI-first.
+  - `Agno` emphasizes agent runtime, FastAPI-based AgentOS, multimodal I/O, workflows, and production serving.
+- A new recommendation should supersede the previous workflow-engine-only selection if the project must be built on one of these three agent frameworks.
+- After comparing the official materials for `AgentScope`, `Dify`, and `Agno`, the strongest fit for "avoid rebuilding runtime/service wheels" is `Agno`.
+- Reasoning summary:
+  - `AgentScope` is strongest on transparency, explicit workflows, and developer control.
+  - `Dify` is strongest on low-code platform workflows and multimodal/RAG operations.
+  - `Agno` is strongest on framework + runtime completeness for a production backend, with multimodal support, FastAPI runtime, and resumable workflow positioning.
+- A dedicated comparison memo has been created at `docs/plans/2026-03-09-agent-framework-selection-among-agentscope-dify-agno.md`.
+- The implementation has started from an Agno-oriented minimal skeleton rather than a full workflow implementation.
+- Created Python project metadata and lockfile:
+  - `pyproject.toml`
+  - `uv.lock`
+- Added tested core behaviors:
+  - stable event id generation from a frame seed
+  - sync and async feedback objects reuse the same `event_id`
+  - YAML runtime config loading and validation
+- Added initial package structure:
+  - `src/ares_agent/api`
+  - `src/ares_agent/domain`
+  - `src/ares_agent/infra`
+  - `src/ares_agent/plugins`
+  - `src/ares_agent/services`
+  - `src/ares_agent/workflows`
+- Added an initial Agno workflow factory in `src/ares_agent/workflows/inspection_event_workflow.py`
+- Added an example runtime config at `config/agent_config.example.yaml`
+- The Agno workflow is now minimally implemented rather than placeholder-only.
+- The workflow currently performs:
+  - `VLM-1` preliminary analysis
+  - `SAM3` segmentation
+  - `VLM-2` evidence judgment
+  - preliminary callback
+  - refined callback
+- The workflow uses one stable `event_id` derived from `EventSeed` across both callbacks.
+- Workflow execution is covered by tests that verify:
+  - execution order
+  - same `event_id` in preliminary and refined feedback
+  - final workflow content reports the refined stage
+- Added JSON fixture-backed mock model clients in `src/ares_agent/model_clients/mock_clients.py`.
+- Added sample fixture data:
+  - `fixtures/mock_vlm_preliminary/road_occupying_vendor.json`
+  - `fixtures/mock_sam3/road_occupying_vendor.json`
+  - `fixtures/mock_vlm_judge/road_occupying_vendor.json`
+- Added HTTP callback sink plugin in `src/ares_agent/plugins/http_callback.py`.
+- The HTTP callback plugin:
+  - serializes Pydantic feedback payloads to dictionaries
+  - attaches bearer auth when configured
+  - returns a structured callback result
+  - supports an injectable sender for testing and later transport replacement
+- Unit test coverage now includes:
+  - fixture loading for all three mock model clients
+  - serialized preliminary callback payload sending
+  - serialized refined callback payload sending
+- FastAPI ingress is now connected to the mock Agno workflow.
+- `src/ares_agent/api/app.py` now provides:
+  - default mock workflow bootstrap from fixture JSON files
+  - injectable `create_app(workflow=...)` factory for tests and later composition
+  - `POST /v1/inspection-items` route that accepts an `EventSeed`, runs the workflow, and returns the refined stage payload
+- API tests verify:
+  - a valid ingestion request produces a refined response with one shared `event_id`
+  - invalid request bodies are rejected with `422`
+- App bootstrap is now configuration-driven.
+- `AppConfig` now includes:
+  - callback auth token
+  - mock client fixture paths
+- `load_config()` resolves fixture paths relative to the YAML file location.
+- `create_app()` now supports:
+  - explicit workflow injection
+  - config-path-based workflow construction
+  - injectable callback sender for tests
+- The default app startup path now reads `config/agent_config.example.yaml`.
+- Mock fixture coverage is no longer single-category.
+- Added three new multi-stage fixture sets for:
+  - `goods_blocking_road`
+  - `unauthorized_electrical_wiring`
+  - `motor_vehicle_illegal_parking`
+- These additional fixture sets exercise three different evidence patterns:
+  - goods/materials versus sidewalk obstruction
+  - wire/charger/electric-vehicle relation
+  - vehicle versus prohibited parking surface/boundary
+- Current implementation status should now be treated as a "mocked workflow MVP skeleton", not a complete backend.
+- Before expanding features further, the highest-value TODOs are:
+  - align the ingestion contract with actual visual-inspection input (image reference/file plus metadata, not metadata only)
+  - add structured execution persistence or at least an in-memory event store for event lookup and audit
+  - add explicit failure-path handling for model, callback, and workflow errors
+  - add an integration-level startup/run path and documentation, not just unit tests
+  - decide whether this version's boundary is "mock closed-loop demo" or "backend MVP ready for external integration"
+- The agreed execution order should now be:
+  - finish P0 first
+  - then finish P1
+  - avoid adding unrelated new features before these are closed
+- P0 is now complete for the current mocked-demo scope.
+- Implemented P0 outcomes:
+  - realistic ingestion contract via `image_uri`
+  - in-memory event result persistence
+  - structured API failure payloads for callback and fixture failures
+  - runnable README with `uv sync`, `uvicorn`, and example curl request
+- The current version boundary is now explicit:
+  - this repo is a mocked closed-loop demo
+  - not yet an externally integrable backend MVP
+- P1 is now complete for the current mocked-demo scope.
+- Implemented P1 outcomes:
+  - API schemas extracted into `src/ares_agent/api/schemas.py`
+  - callback config supports `auth_token_env`, `timeout_ms`, and retry settings
+  - event query route available at `GET /v1/events/{event_id}`
+  - integration-style tests cover success and failure roundtrips through HTTP ingress
+- Added local service stubs that simulate the real deployment shape:
+  - VLM preliminary endpoint returning OpenAI-style chat completion JSON
+  - VLM judge endpoint returning OpenAI-style chat completion JSON
+  - SAM3 segment endpoint returning direct FastAPI JSON
+- Added HTTP-style clients in `src/ares_agent/model_clients/http_clients.py` to exercise those stubs.
+- Verified:
+  - stub endpoints respond with expected shapes
+  - HTTP clients parse them into domain results
+  - the inspection workflow runs successfully through the HTTP-style clients

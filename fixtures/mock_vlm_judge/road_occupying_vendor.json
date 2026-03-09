@@ -1,0 +1,11 @@
+{
+  "final_category": "road_occupying_vendor",
+  "final_confidence": 0.96,
+  "evidence_basis_match": true,
+  "violation_relation_confirmed": true,
+  "exception_excluded": true,
+  "archive_readiness": true,
+  "review_required": false,
+  "rejection_reason": null,
+  "violation_relation_summary": "stall and goods extend beyond storefront boundary into the sidewalk"
+}

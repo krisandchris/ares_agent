@@ -1,0 +1,73 @@
+"""Feedback payload builders shared by sync and async chains."""
+
+from __future__ import annotations
+
+from typing import Literal
+
+from pydantic import BaseModel, Field
+
+
+class PreliminaryEventFeedback(BaseModel):
+    event_id: str
+    frame_id: str
+    stage: Literal["preliminary"] = "preliminary"
+    suspected_categories: list[str]
+    risk_level: str
+    prelim_confidence: float = Field(ge=0.0, le=1.0)
+    need_retake: bool
+    async_enqueued: bool
+
+
+class RefinedEventFeedback(BaseModel):
+    event_id: str
+    frame_id: str
+    stage: Literal["refined"] = "refined"
+    final_category: str
+    final_confidence: float = Field(ge=0.0, le=1.0)
+    archive_readiness: bool
+    review_required: bool
+    event_version: int = Field(default=2, ge=1)
+
+
+def build_preliminary_feedback(
+    *,
+    event_id: str,
+    frame_id: str,
+    suspected_categories: list[str],
+    risk_level: str,
+    prelim_confidence: float,
+    need_retake: bool,
+    async_enqueued: bool,
+) -> PreliminaryEventFeedback:
+    """Create the fast-path payload shared with the management service."""
+    return PreliminaryEventFeedback(
+        event_id=event_id,
+        frame_id=frame_id,
+        suspected_categories=suspected_categories,
+        risk_level=risk_level,
+        prelim_confidence=prelim_confidence,
+        need_retake=need_retake,
+        async_enqueued=async_enqueued,
+    )
+
+
+def build_refined_feedback(
+    *,
+    event_id: str,
+    frame_id: str,
+    final_category: str,
+    final_confidence: float,
+    archive_readiness: bool,
+    review_required: bool,
+    event_version: int = 2,
+) -> RefinedEventFeedback:
+    """Create the refined payload that updates the same logical event."""
+    return RefinedEventFeedback(
+        event_id=event_id,
+        frame_id=frame_id,
+        final_category=final_category,
+        final_confidence=final_confidence,
+        archive_readiness=archive_readiness,
+        review_required=review_required,
+        event_version=event_version,
+    )

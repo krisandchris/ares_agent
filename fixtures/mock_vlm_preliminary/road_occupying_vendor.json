@@ -1,0 +1,12 @@
+{
+  "suspected_categories": ["road_occupying_vendor"],
+  "risk_level": "high",
+  "prelim_confidence": 0.91,
+  "need_retake": false,
+  "open_risk_hints": [],
+  "evidence_targets": [
+    "stall",
+    "storefront_boundary",
+    "sidewalk_or_roadway"
+  ]
+}
