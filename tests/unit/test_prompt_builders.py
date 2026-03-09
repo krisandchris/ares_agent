@@ -34,8 +34,9 @@ def test_default_prompt_builder_builds_judge_messages_with_preliminary_context()
     )
 
     messages = builder.build_judge_messages(
-        event_id="evt_123",
         category_code="road_occupying_vendor",
+        mask_labels=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+        relation_hint="stall overlaps sidewalk outside storefront boundary",
         evidence_basis_summary="stall overlaps sidewalk boundary",
         preliminary=preliminary,
     )
@@ -43,11 +44,12 @@ def test_default_prompt_builder_builds_judge_messages_with_preliminary_context()
     assert messages[0]["role"] == "system"
     assert "evidence judge" in messages[0]["content"].lower()
     user_text = messages[1]["content"][0]["text"]
-    assert "evt_123" in user_text
     assert "category_code=road_occupying_vendor" in user_text
-    assert "evidence_targets=stall, storefront_boundary, sidewalk_or_roadway" in user_text
-    assert "open_risk_hints=street obstruction risk" in user_text
+    assert "mask_labels=stall, storefront_boundary, sidewalk_or_roadway" in user_text
+    assert "relation_hint=stall overlaps sidewalk outside storefront boundary" in user_text
     assert "evidence_basis_summary=stall overlaps sidewalk boundary" in user_text
+    assert "event_id=" not in user_text
+    assert "segmentation_status=" not in user_text
     assert "risk_level=" not in user_text
     assert "prelim_confidence=" not in user_text
     assert "need_retake=" not in user_text

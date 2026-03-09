@@ -18,8 +18,9 @@ class PromptBuilder:
     def build_judge_messages(
         self,
         *,
-        event_id: str,
         category_code: str,
+        mask_labels: list[str],
+        relation_hint: str,
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
@@ -47,16 +48,16 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
     def build_judge_messages(
         self,
         *,
-        event_id: str,
         category_code: str,
+        mask_labels: list[str],
+        relation_hint: str,
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         user_text = (
-            f"event_id={event_id}; "
             f"category_code={category_code}; "
-            f"evidence_targets={', '.join(preliminary.evidence_targets)}; "
-            f"open_risk_hints={', '.join(preliminary.open_risk_hints) if preliminary.open_risk_hints else 'none'}; "
+            f"mask_labels={', '.join(mask_labels)}; "
+            f"relation_hint={relation_hint}; "
             f"evidence_basis_summary={evidence_basis_summary}"
         )
         return [
@@ -102,16 +103,16 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     def build_judge_messages(
         self,
         *,
-        event_id: str,
         category_code: str,
+        mask_labels: list[str],
+        relation_hint: str,
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         dynamic_user_text = (
-            f"event_id={event_id}\n"
             f"category_code={category_code}\n"
-            f"evidence_targets={', '.join(preliminary.evidence_targets)}\n"
-            f"open_risk_hints={', '.join(preliminary.open_risk_hints) if preliminary.open_risk_hints else 'none'}\n"
+            f"mask_labels={', '.join(mask_labels)}\n"
+            f"relation_hint={relation_hint}\n"
             f"evidence_basis_summary={evidence_basis_summary}"
         )
         return [

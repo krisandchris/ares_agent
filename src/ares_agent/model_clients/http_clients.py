@@ -81,12 +81,13 @@ class SglangVlmJudgeClient:
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
-        del overlay_image, mask_labels, relation_hint, segmentation_status
+        del event_id, overlay_image, segmentation_status
         payload = {
             "model": self.model_name,
             "messages": self.prompt_builder.build_judge_messages(
-                event_id=event_id,
                 category_code=category_code,
+                mask_labels=mask_labels or [],
+                relation_hint=relation_hint,
                 evidence_basis_summary=evidence_basis_summary,
                 preliminary=preliminary,
             ),
