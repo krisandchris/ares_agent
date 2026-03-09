@@ -14,6 +14,7 @@ from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.infra.event_store import InMemoryEventStore
 from ares_agent.model_clients.http_clients import (
+    Requester,
     Sam3FastApiClient,
     SglangVlmJudgeClient,
     SglangVlmPreliminaryClient,
@@ -36,8 +37,12 @@ def _build_workflow_from_config(
     config: AppConfig,
     *,
     callback_sender: Sender | None = None,
+    model_requesters: dict[str, Requester] | None = None,
 ) -> Workflow:
-    preliminary_client, segmentation_client, evidence_judge_client = _build_model_clients_from_config(config)
+    preliminary_client, segmentation_client, evidence_judge_client = _build_model_clients_from_config(
+        config,
+        model_requesters=model_requesters,
+    )
     return build_inspection_event_workflow(
         preliminary_client=preliminary_client,
         segmentation_client=segmentation_client,
@@ -71,7 +76,10 @@ def _build_prompt_builder_from_config(config: AppConfig) -> DefaultInspectionPro
 
 def _build_model_clients_from_config(
     config: AppConfig,
+    *,
+    model_requesters: dict[str, Requester] | None = None,
 ):
+    model_requesters = model_requesters or {}
     if config.model_clients.mode == "http":
         prompt_builder = _build_prompt_builder_from_config(config)
         if (
@@ -90,6 +98,7 @@ def _build_model_clients_from_config(
                 timeout_ms=config.model_clients.preliminary.timeout_ms,
                 temperature=config.model_clients.preliminary.temperature or 0.0,
                 max_tokens=config.model_clients.preliminary.max_tokens,
+                requester=model_requesters.get("preliminary"),
                 prompt_builder=prompt_builder,
             ),
             Sam3FastApiClient(
@@ -98,6 +107,7 @@ def _build_model_clients_from_config(
                     config.model_clients.sam3.endpoint,
                 ),
                 timeout_ms=config.model_clients.sam3.timeout_ms,
+                requester=model_requesters.get("sam3"),
             ),
             SglangVlmJudgeClient(
                 endpoint=_build_http_endpoint(
@@ -108,6 +118,7 @@ def _build_model_clients_from_config(
                 timeout_ms=config.model_clients.judge.timeout_ms,
                 temperature=config.model_clients.judge.temperature or 0.0,
                 max_tokens=config.model_clients.judge.max_tokens,
+                requester=model_requesters.get("judge"),
                 prompt_builder=prompt_builder,
             ),
         )
@@ -134,6 +145,7 @@ def create_app(
     config_path: str | Path | None = None,
     callback_sender: Sender | None = None,
     event_store: InMemoryEventStore | None = None,
+    model_requesters: dict[str, Requester] | None = None,
 ) -> FastAPI:
     """Create the API app with the minimal service endpoints."""
     app = FastAPI(title="Ares Street Inspection Agent")
@@ -148,11 +160,13 @@ def create_app(
         app.state.inspection_workflow = _build_workflow_from_config(
             app.state.app_config,
             callback_sender=callback_sender,
+            model_requesters=model_requesters,
         )
     else:
         app.state.inspection_workflow = _build_workflow_from_config(
             app.state.app_config,
             callback_sender=callback_sender,
+            model_requesters=model_requesters,
         )
 
     @app.get("/healthz")
