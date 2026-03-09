@@ -8,7 +8,7 @@ from ares_agent.api.app import create_app
 def test_mock_vlm_preliminary_endpoint_returns_openai_style_completion(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"suspected_categories":["road_occupying_vendor"],"risk_level":"high","prelim_confidence":0.91,"need_retake":false,"open_risk_hints":[],"evidence_targets":["stall","storefront_boundary","sidewalk_or_roadway"]}',
+        '{"environment_analysis":"street storefront scene","scene_elements":["storefront","stall","sidewalk"],"evidence_reasoning":"stall extends into sidewalk","violation_category":"road_occupying_vendor","open_risk_type":"","confidence":0.91,"segmentation_targets":["stall","storefront_boundary","sidewalk_or_roadway"],"relation_hint":"stall overlaps sidewalk outside storefront boundary"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"
@@ -64,7 +64,7 @@ def test_mock_vlm_preliminary_endpoint_returns_openai_style_completion(tmp_path:
 def test_mock_sam3_segment_endpoint_returns_fastapi_style_json(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"suspected_categories":["goods_blocking_road"],"risk_level":"medium","prelim_confidence":0.84,"need_retake":false,"open_risk_hints":[],"evidence_targets":["goods_or_materials","sidewalk","passage_obstruction"]}',
+        '{"environment_analysis":"storefront sidewalk scene","scene_elements":["goods","sidewalk","storefront_entrance"],"evidence_reasoning":"goods block pedestrian passage","violation_category":"goods_blocking_road","open_risk_type":"","confidence":0.84,"segmentation_targets":["goods","storefront_entrance","sidewalk"],"relation_hint":"goods placed outside storefront and block sidewalk"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"

@@ -25,12 +25,6 @@ class FakePreliminaryClient:
             confidence=0.91,
             segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
             relation_hint="stall overlaps sidewalk outside storefront boundary",
-            suspected_categories=["road_occupying_vendor"],
-            risk_level="high",
-            prelim_confidence=0.91,
-            need_retake=False,
-            open_risk_hints=[],
-            evidence_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
         )
 
 

@@ -14,7 +14,7 @@ from ares_agent.model_clients.http_clients import (
 def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"suspected_categories":["unauthorized_electrical_wiring"],"risk_level":"high","prelim_confidence":0.93,"need_retake":false,"open_risk_hints":[],"evidence_targets":["wire","charger","electric_vehicle","outdoor_connection"]}',
+        '{"environment_analysis":"storefront charging scene","scene_elements":["wire","charger","electric_vehicle"],"evidence_reasoning":"wire extends from storefront to electric vehicle","violation_category":"unauthorized_electrical_wiring","open_risk_type":"","confidence":0.93,"segmentation_targets":["wire","charger","electric_vehicle","outdoor_connection"],"relation_hint":"wire connects storefront charger to electric vehicle"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"
@@ -73,9 +73,9 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
             occur_time="2026-03-09T10:40:00Z",
         )
     )
-    sam = sam3_client.segment("s3://street/frame-003.jpg", prelim.evidence_targets)
+    sam = sam3_client.segment("s3://street/frame-003.jpg", prelim.segmentation_targets)
     judge = judge_client.judge(
-        category_code=prelim.suspected_categories[0],
+        category_code=prelim.violation_category,
         overlay_image=sam.overlay_image,
         mask_labels=sam.mask_labels,
         relation_hint=sam.relation_hint,
@@ -83,7 +83,7 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
         preliminary=prelim,
     )
 
-    assert prelim.suspected_categories == ["unauthorized_electrical_wiring"]
+    assert prelim.violation_category == "unauthorized_electrical_wiring"
     assert sam.mask_uri == "s3://mock/wiring_mask.png"
     assert sam.overlay_image == "s3://mock/wiring_overlay.png"
     assert judge.final_category == "unauthorized_electrical_wiring"

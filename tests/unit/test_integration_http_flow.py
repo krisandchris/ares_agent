@@ -9,7 +9,7 @@ from ares_agent.infra.event_store import InMemoryEventStore
 def test_http_flow_success_and_query_roundtrip(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"suspected_categories":["motor_vehicle_illegal_parking"],"risk_level":"high","prelim_confidence":0.9,"need_retake":false,"open_risk_hints":[],"evidence_targets":["motor_vehicle","sidewalk_or_bus_stop_or_unmarked_area"]}',
+        '{"environment_analysis":"street parking scene","scene_elements":["motor_vehicle","sidewalk"],"evidence_reasoning":"vehicle occupies sidewalk space","violation_category":"motor_vehicle_illegal_parking","open_risk_type":"","confidence":0.9,"segmentation_targets":["motor_vehicle","sidewalk_or_bus_stop_or_unmarked_area"],"relation_hint":"vehicle occupies sidewalk space"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"
@@ -81,7 +81,7 @@ def test_http_flow_success_and_query_roundtrip(tmp_path: Path) -> None:
 def test_http_flow_failure_and_query_roundtrip(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"suspected_categories":["goods_blocking_road"],"risk_level":"medium","prelim_confidence":0.84,"need_retake":false,"open_risk_hints":[],"evidence_targets":["goods_or_materials","sidewalk","passage_obstruction"]}',
+        '{"environment_analysis":"storefront sidewalk scene","scene_elements":["goods","sidewalk"],"evidence_reasoning":"goods block pedestrian passage","violation_category":"goods_blocking_road","open_risk_type":"","confidence":0.84,"segmentation_targets":["goods_or_materials","sidewalk","passage_obstruction"],"relation_hint":"goods block sidewalk"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"

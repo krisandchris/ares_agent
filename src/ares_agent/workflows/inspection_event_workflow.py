@@ -7,7 +7,7 @@ from typing import Any, Protocol
 
 from agno.workflow import Step, Workflow
 from agno.workflow.types import StepInput, StepOutput
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.domain.evidence import EvidencePackage
@@ -17,20 +17,22 @@ from ares_agent.services.feedback import build_preliminary_feedback, build_refin
 class PreliminaryResult(BaseModel):
     """Output from the first VLM pass."""
 
-    environment_analysis: str = ""
-    scene_elements: list[str] = Field(default_factory=list)
-    evidence_reasoning: str = ""
-    violation_category: str = ""
-    open_risk_type: str = ""
-    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
-    segmentation_targets: list[str] = Field(default_factory=list)
-    relation_hint: str = ""
-    suspected_categories: list[str]
-    risk_level: str
-    prelim_confidence: float = Field(ge=0.0, le=1.0)
-    need_retake: bool
-    open_risk_hints: list[str] = Field(default_factory=list)
-    evidence_targets: list[str] = Field(default_factory=list)
+    environment_analysis: str
+    scene_elements: list[str]
+    evidence_reasoning: str
+    segmentation_targets: list[str]
+    relation_hint: str
+    violation_category: str
+    open_risk_type: str
+    confidence: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_open_risk_type(self) -> "PreliminaryResult":
+        if self.violation_category == "open_risk" and not self.open_risk_type:
+            raise ValueError("open_risk_type must be non-empty when violation_category is open_risk")
+        if self.violation_category != "open_risk" and self.open_risk_type != "":
+            raise ValueError("open_risk_type must be empty unless violation_category is open_risk")
+        return self
 
 
 class SegmentationResult(BaseModel):
@@ -143,10 +145,9 @@ def _preliminary_step_factory(
             feedback = build_preliminary_feedback(
                 event_id=event_id,
                 frame_id=seed.frame_id,
-                suspected_categories=preliminary.suspected_categories,
-                risk_level=preliminary.risk_level,
-                prelim_confidence=preliminary.prelim_confidence,
-                need_retake=preliminary.need_retake,
+                violation_category=preliminary.violation_category,
+                open_risk_type=preliminary.open_risk_type,
+                confidence=preliminary.confidence,
                 async_enqueued=True,
             )
             callback_result = sink_plugin.send(feedback, runtime_config)
@@ -171,7 +172,7 @@ def _segmentation_step_factory(*, segmentation_client: SegmentationClient) -> St
             preliminary_content = step_input.get_step_content("preliminary") or {}
             image_uri = preliminary_content["frame_seed"]["image_uri"]
             preliminary = preliminary_content["preliminary"]
-            segmentation_targets = preliminary.get("segmentation_targets") or preliminary["evidence_targets"]
+            segmentation_targets = preliminary["segmentation_targets"]
             segmentation = segmentation_client.segment(image_uri, segmentation_targets)
             return StepOutput(
                 content={
@@ -197,7 +198,7 @@ def _evidence_judge_step_factory(
             event_id = segmentation_content["event_id"]
             preliminary = segmentation_content["preliminary"]
             segmentation = segmentation_content["segmentation"]
-            final_category = preliminary.get("violation_category") or preliminary["suspected_categories"][0]
+            final_category = preliminary["violation_category"]
             judgment = evidence_judge_client.judge(
                 event_id=event_id,
                 category_code=final_category,

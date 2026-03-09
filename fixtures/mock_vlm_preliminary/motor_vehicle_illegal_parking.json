@@ -1,11 +1,13 @@
 {
-  "suspected_categories": ["motor_vehicle_illegal_parking"],
-  "risk_level": "high",
-  "prelim_confidence": 0.9,
-  "need_retake": false,
-  "open_risk_hints": [],
-  "evidence_targets": [
+  "environment_analysis": "Street parking scene where a motor vehicle is positioned on or across the sidewalk area rather than a marked parking zone.",
+  "scene_elements": ["motor_vehicle", "sidewalk", "roadside"],
+  "evidence_reasoning": "The vehicle occupies sidewalk space and does not appear to be within a compliant parking area.",
+  "segmentation_targets": [
     "motor_vehicle",
     "sidewalk_or_bus_stop_or_unmarked_area"
-  ]
+  ],
+  "relation_hint": "vehicle overlaps sidewalk boundary",
+  "violation_category": "motor_vehicle_illegal_parking",
+  "open_risk_type": "",
+  "confidence": 0.9
 }

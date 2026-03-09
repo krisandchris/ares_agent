@@ -14,12 +14,14 @@ def test_preliminary_http_client_uses_prompt_builder_messages() -> None:
                 {
                     "message": {
                         "content": {
-                            "suspected_categories": ["goods_blocking_road"],
-                            "risk_level": "medium",
-                            "prelim_confidence": 0.84,
-                            "need_retake": False,
-                            "open_risk_hints": [],
-                            "evidence_targets": ["goods_or_materials", "sidewalk", "passage_obstruction"],
+                            "environment_analysis": "storefront sidewalk scene",
+                            "scene_elements": ["goods", "sidewalk", "storefront_entrance"],
+                            "evidence_reasoning": "goods block pedestrian passage",
+                            "segmentation_targets": ["goods", "storefront_entrance", "sidewalk"],
+                            "relation_hint": "goods placed outside storefront and block sidewalk",
+                            "violation_category": "goods_blocking_road",
+                            "open_risk_type": "",
+                            "confidence": 0.84,
                         }
                     }
                 }
@@ -89,12 +91,14 @@ def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
         segmentation_status="ok",
         evidence_basis_summary="stall overlaps sidewalk boundary",
         preliminary=PreliminaryResult(
-            suspected_categories=["road_occupying_vendor"],
-            risk_level="high",
-            prelim_confidence=0.91,
-            need_retake=False,
-            open_risk_hints=["street obstruction risk"],
-            evidence_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+            environment_analysis="street storefront scene",
+            scene_elements=["storefront", "stall", "sidewalk"],
+            evidence_reasoning="stall extends into sidewalk",
+            segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+            relation_hint="stall overlaps sidewalk outside storefront boundary",
+            violation_category="road_occupying_vendor",
+            open_risk_type="",
+            confidence=0.91,
         ),
     )
 
@@ -158,12 +162,14 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
         segmentation_status="ok",
         evidence_basis_summary="stall overlaps sidewalk boundary",
         preliminary=PreliminaryResult(
-            suspected_categories=["road_occupying_vendor"],
-            risk_level="high",
-            prelim_confidence=0.91,
-            need_retake=False,
-            open_risk_hints=["street obstruction risk"],
-            evidence_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+            environment_analysis="street storefront scene",
+            scene_elements=["storefront", "stall", "sidewalk"],
+            evidence_reasoning="stall extends into sidewalk",
+            segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+            relation_hint="stall overlaps sidewalk outside storefront boundary",
+            violation_category="road_occupying_vendor",
+            open_risk_type="",
+            confidence=0.91,
         ),
     )
 

@@ -1,12 +1,14 @@
 {
-  "suspected_categories": ["road_occupying_vendor"],
-  "risk_level": "high",
-  "prelim_confidence": 0.91,
-  "need_retake": false,
-  "open_risk_hints": [],
-  "evidence_targets": [
+  "environment_analysis": "Street storefront scene with stall-like objects extending outside the storefront boundary into the sidewalk area.",
+  "scene_elements": ["storefront", "stall", "goods", "sidewalk"],
+  "evidence_reasoning": "The stall and displayed goods are located outside the storefront boundary and occupy sidewalk space.",
+  "segmentation_targets": [
     "stall",
     "storefront_boundary",
     "sidewalk_or_roadway"
-  ]
+  ],
+  "relation_hint": "stall overlaps sidewalk outside storefront boundary",
+  "violation_category": "road_occupying_vendor",
+  "open_risk_type": "",
+  "confidence": 0.91
 }

@@ -16,7 +16,7 @@ from ares_agent.workflows.inspection_event_workflow import build_inspection_even
 def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"suspected_categories":["motor_vehicle_illegal_parking"],"risk_level":"high","prelim_confidence":0.90,"need_retake":false,"open_risk_hints":[],"evidence_targets":["motor_vehicle","sidewalk_or_bus_stop_or_unmarked_area"]}',
+        '{"environment_analysis":"street parking scene","scene_elements":["motor_vehicle","sidewalk"],"evidence_reasoning":"vehicle occupies sidewalk space","violation_category":"motor_vehicle_illegal_parking","open_risk_type":"","confidence":0.90,"segmentation_targets":["motor_vehicle","sidewalk_or_bus_stop_or_unmarked_area"],"relation_hint":"vehicle overlaps sidewalk boundary"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"

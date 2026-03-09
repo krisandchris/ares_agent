@@ -25,12 +25,14 @@ def test_default_prompt_builder_builds_preliminary_messages_from_event_seed() ->
 def test_default_prompt_builder_builds_judge_messages_with_preliminary_context() -> None:
     builder = DefaultInspectionPromptBuilder()
     preliminary = PreliminaryResult(
-        suspected_categories=["road_occupying_vendor"],
-        risk_level="high",
-        prelim_confidence=0.91,
-        need_retake=False,
-        open_risk_hints=["street obstruction risk"],
-        evidence_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+        environment_analysis="street storefront scene",
+        scene_elements=["storefront", "stall", "sidewalk"],
+        evidence_reasoning="stall extends into sidewalk",
+        segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+        relation_hint="stall overlaps sidewalk outside storefront boundary",
+        violation_category="road_occupying_vendor",
+        open_risk_type="",
+        confidence=0.91,
     )
 
     messages = builder.build_judge_messages(

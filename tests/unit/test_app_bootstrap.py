@@ -18,16 +18,18 @@ def test_create_app_bootstraps_workflow_from_config_and_fixture_paths(tmp_path: 
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
         json.dumps(
-            {
-                "suspected_categories": ["goods_blocking_road"],
-                "risk_level": "medium",
-                "prelim_confidence": 0.83,
-                "need_retake": False,
-                "open_risk_hints": [],
-                "evidence_targets": ["goods_or_materials", "sidewalk", "passage_obstruction"],
-            }
-        ),
-        encoding="utf-8",
+                {
+                    "environment_analysis": "storefront sidewalk scene",
+                    "scene_elements": ["goods", "sidewalk", "storefront_entrance"],
+                    "evidence_reasoning": "goods are stacked on the sidewalk",
+                    "violation_category": "goods_blocking_road",
+                    "open_risk_type": "",
+                    "confidence": 0.83,
+                    "segmentation_targets": ["goods", "storefront_entrance", "sidewalk"],
+                    "relation_hint": "goods placed outside storefront and block sidewalk",
+                }
+            ),
+            encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"
     sam_fixture.write_text(

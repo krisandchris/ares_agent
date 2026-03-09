@@ -9,7 +9,7 @@ from ares_agent.infra.event_store import InMemoryEventStore
 def test_create_app_runs_full_workflow_in_http_mode_with_configured_clients(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text(
-        '{"environment_analysis":"street storefront scene","scene_elements":["storefront","goods","sidewalk"],"evidence_reasoning":"goods extend onto sidewalk","violation_category":"goods_blocking_road","open_risk_type":"","confidence":0.84,"segmentation_targets":["goods","storefront_entrance","sidewalk"],"relation_hint":"goods placed outside storefront and block sidewalk","suspected_categories":["goods_blocking_road"],"risk_level":"medium","prelim_confidence":0.84,"need_retake":false,"open_risk_hints":["street obstruction risk"],"evidence_targets":["goods","storefront_entrance","sidewalk"]}',
+        '{"environment_analysis":"street storefront scene","scene_elements":["storefront","goods","sidewalk"],"evidence_reasoning":"goods extend onto sidewalk","violation_category":"goods_blocking_road","open_risk_type":"","confidence":0.84,"segmentation_targets":["goods","storefront_entrance","sidewalk"],"relation_hint":"goods placed outside storefront and block sidewalk"}',
         encoding="utf-8",
     )
     sam_fixture = tmp_path / "sam.json"

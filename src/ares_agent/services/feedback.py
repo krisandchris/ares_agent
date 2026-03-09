@@ -11,10 +11,9 @@ class PreliminaryEventFeedback(BaseModel):
     event_id: str
     frame_id: str
     stage: Literal["preliminary"] = "preliminary"
-    suspected_categories: list[str]
-    risk_level: str
-    prelim_confidence: float = Field(ge=0.0, le=1.0)
-    need_retake: bool
+    violation_category: str
+    open_risk_type: str
+    confidence: float = Field(ge=0.0, le=1.0)
     async_enqueued: bool
 
 
@@ -33,20 +32,18 @@ def build_preliminary_feedback(
     *,
     event_id: str,
     frame_id: str,
-    suspected_categories: list[str],
-    risk_level: str,
-    prelim_confidence: float,
-    need_retake: bool,
+    violation_category: str,
+    open_risk_type: str,
+    confidence: float,
     async_enqueued: bool,
 ) -> PreliminaryEventFeedback:
     """Create the fast-path payload shared with the management service."""
     return PreliminaryEventFeedback(
         event_id=event_id,
         frame_id=frame_id,
-        suspected_categories=suspected_categories,
-        risk_level=risk_level,
-        prelim_confidence=prelim_confidence,
-        need_retake=need_retake,
+        violation_category=violation_category,
+        open_risk_type=open_risk_type,
+        confidence=confidence,
         async_enqueued=async_enqueued,
     )
 

@@ -17,10 +17,9 @@ def test_http_callback_plugin_sends_serialized_preliminary_payload() -> None:
     feedback = build_preliminary_feedback(
         event_id="evt_123",
         frame_id="frame-001",
-        suspected_categories=["road_occupying_vendor"],
-        risk_level="high",
-        prelim_confidence=0.91,
-        need_retake=False,
+        violation_category="road_occupying_vendor",
+        open_risk_type="",
+        confidence=0.91,
         async_enqueued=True,
     )
 
@@ -37,10 +36,9 @@ def test_http_callback_plugin_sends_serialized_preliminary_payload() -> None:
                 "event_id": "evt_123",
                 "frame_id": "frame-001",
                 "stage": "preliminary",
-                "suspected_categories": ["road_occupying_vendor"],
-                "risk_level": "high",
-                "prelim_confidence": 0.91,
-                "need_retake": False,
+                "violation_category": "road_occupying_vendor",
+                "open_risk_type": "",
+                "confidence": 0.91,
                 "async_enqueued": True,
             },
         )

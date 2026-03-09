@@ -15,10 +15,9 @@ def test_refined_feedback_reuses_preliminary_event_id() -> None:
     preliminary = build_preliminary_feedback(
         event_id=event_id,
         frame_id=seed.frame_id,
-        suspected_categories=["road_occupying_vendor"],
-        risk_level="high",
-        prelim_confidence=0.91,
-        need_retake=False,
+        violation_category="road_occupying_vendor",
+        open_risk_type="",
+        confidence=0.91,
         async_enqueued=True,
     )
 
@@ -34,5 +33,6 @@ def test_refined_feedback_reuses_preliminary_event_id() -> None:
 
     assert preliminary.event_id == refined.event_id
     assert preliminary.stage == "preliminary"
+    assert preliminary.violation_category == "road_occupying_vendor"
     assert refined.stage == "refined"
     assert refined.event_version == 2

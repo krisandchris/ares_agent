@@ -16,10 +16,10 @@ def test_mock_preliminary_client_loads_json_fixture() -> None:
 
     result = client.analyze_from_fixture()
 
-    assert result.suspected_categories == ["road_occupying_vendor"]
-    assert result.risk_level == "high"
-    assert result.need_retake is False
-    assert "stall" in result.evidence_targets
+    assert result.violation_category == "road_occupying_vendor"
+    assert result.open_risk_type == ""
+    assert result.confidence == 0.91
+    assert "stall" in result.segmentation_targets
 
 
 def test_mock_segmentation_client_loads_json_fixture() -> None:
@@ -48,16 +48,16 @@ def test_mock_evidence_judge_client_loads_json_fixture() -> None:
 
 
 @pytest.mark.parametrize(
-    ("category_code", "risk_level", "anchor"),
+    ("category_code", "confidence", "anchor"),
     [
-        ("goods_blocking_road", "medium", "goods_or_materials"),
-        ("unauthorized_electrical_wiring", "high", "wire"),
-        ("motor_vehicle_illegal_parking", "high", "motor_vehicle"),
+        ("goods_blocking_road", 0.84, "goods"),
+        ("unauthorized_electrical_wiring", 0.93, "wire"),
+        ("motor_vehicle_illegal_parking", 0.9, "motor_vehicle"),
     ],
 )
 def test_mock_preliminary_client_supports_multiple_categories(
     category_code: str,
-    risk_level: str,
+    confidence: float,
     anchor: str,
 ) -> None:
     client = MockPreliminaryClient(
@@ -66,9 +66,9 @@ def test_mock_preliminary_client_supports_multiple_categories(
 
     result = client.analyze_from_fixture()
 
-    assert result.suspected_categories == [category_code]
-    assert result.risk_level == risk_level
-    assert anchor in result.evidence_targets
+    assert result.violation_category == category_code
+    assert result.confidence == confidence
+    assert anchor in result.segmentation_targets
 
 
 @pytest.mark.parametrize(

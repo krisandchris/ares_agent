@@ -11,17 +11,13 @@ def test_preliminary_result_includes_downstream_fields_needed_by_vlm2() -> None:
         confidence=0.84,
         segmentation_targets=["goods", "storefront_entrance", "sidewalk"],
         relation_hint="goods placed outside storefront and block sidewalk",
-        suspected_categories=["goods_blocking_road"],
-        risk_level="medium",
-        prelim_confidence=0.84,
-        need_retake=False,
-        open_risk_hints=[],
-        evidence_targets=["goods", "storefront_entrance", "sidewalk"],
     )
 
     assert result.violation_category == "goods_blocking_road"
     assert result.segmentation_targets == ["goods", "storefront_entrance", "sidewalk"]
     assert result.relation_hint == "goods placed outside storefront and block sidewalk"
+    assert result.open_risk_type == ""
+    assert result.confidence == 0.84
 
 
 def test_segmentation_result_includes_fields_consumed_by_vlm2() -> None:

@@ -1,12 +1,14 @@
 {
-  "suspected_categories": ["goods_blocking_road"],
-  "risk_level": "medium",
-  "prelim_confidence": 0.84,
-  "need_retake": false,
-  "open_risk_hints": [],
-  "evidence_targets": [
-    "goods_or_materials",
-    "sidewalk",
-    "passage_obstruction"
-  ]
+  "environment_analysis": "Storefront sidewalk scene with goods and materials placed outside the entrance area, affecting pedestrian passage.",
+  "scene_elements": ["storefront_entrance", "goods", "materials", "sidewalk"],
+  "evidence_reasoning": "The goods are stacked on the sidewalk outside the storefront and obstruct passage.",
+  "segmentation_targets": [
+    "goods",
+    "storefront_entrance",
+    "sidewalk"
+  ],
+  "relation_hint": "goods placed outside storefront and block sidewalk",
+  "violation_category": "goods_blocking_road",
+  "open_risk_type": "",
+  "confidence": 0.84
 }

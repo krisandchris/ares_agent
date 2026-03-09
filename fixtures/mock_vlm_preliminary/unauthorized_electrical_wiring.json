@@ -1,13 +1,15 @@
 {
-  "suspected_categories": ["unauthorized_electrical_wiring"],
-  "risk_level": "high",
-  "prelim_confidence": 0.93,
-  "need_retake": false,
-  "open_risk_hints": [],
-  "evidence_targets": [
+  "environment_analysis": "Street storefront charging scene with a visible wire extending from the storefront area to an outdoor electric vehicle.",
+  "scene_elements": ["storefront", "wire", "charger", "electric_vehicle"],
+  "evidence_reasoning": "A charging wire appears to connect the storefront power source to an outdoor electric vehicle.",
+  "segmentation_targets": [
     "wire",
     "charger",
     "electric_vehicle",
     "outdoor_connection"
-  ]
+  ],
+  "relation_hint": "wire connects storefront charger to electric vehicle",
+  "violation_category": "unauthorized_electrical_wiring",
+  "open_risk_type": "",
+  "confidence": 0.93
 }
