@@ -68,10 +68,10 @@ def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() 
     assert messages[0]["content"] == "You are a custom judge model."
     user_text = messages[1]["content"][0]["text"]
     assert "event_id=evt_123" in user_text
-    assert "vlm1_risk_level=high" in user_text
-    assert "vlm1_prelim_confidence=0.91" in user_text
-    assert "vlm1_need_retake=False" in user_text
-    assert "candidate_category=" not in user_text
-    assert "vlm1_evidence_targets=" not in user_text
-    assert "vlm1_open_risk_hints=" not in user_text
-    assert "evidence_basis_summary=" not in user_text
+    assert "category_code=road_occupying_vendor" in user_text
+    assert "evidence_targets=stall, storefront_boundary, sidewalk_or_roadway" in user_text
+    assert "open_risk_hints=street obstruction risk" in user_text
+    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in user_text
+    assert "vlm1_risk_level=" not in user_text
+    assert "vlm1_prelim_confidence=" not in user_text
+    assert "vlm1_need_retake=" not in user_text

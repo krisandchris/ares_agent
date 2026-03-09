@@ -96,12 +96,13 @@ def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
 
     assert captured
     judge_text = captured[0]["messages"][1]["content"][0]["text"]
-    assert "risk_level=high" in judge_text
-    assert "prelim_confidence=0.91" in judge_text
-    assert "need_retake=False" in judge_text
-    assert "evidence_targets=" not in judge_text
-    assert "open_risk_hints=" not in judge_text
-    assert "evidence_basis_summary=" not in judge_text
+    assert "category_code=road_occupying_vendor" in judge_text
+    assert "evidence_targets=stall, storefront_boundary, sidewalk_or_roadway" in judge_text
+    assert "open_risk_hints=street obstruction risk" in judge_text
+    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
+    assert "risk_level=" not in judge_text
+    assert "prelim_confidence=" not in judge_text
+    assert "need_retake=" not in judge_text
 
 
 def test_judge_http_client_can_use_configurable_templates() -> None:
@@ -156,9 +157,10 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
 
     assert captured[0]["messages"][0]["content"] == "Custom judge system"
     judge_text = captured[0]["messages"][1]["content"][0]["text"]
-    assert "vlm1_risk_level=high" in judge_text
-    assert "vlm1_need_retake=False" in judge_text
-    assert "candidate_category=" not in judge_text
-    assert "vlm1_evidence_targets=" not in judge_text
-    assert "vlm1_open_risk_hints=" not in judge_text
-    assert "evidence_basis_summary=" not in judge_text
+    assert "category_code=road_occupying_vendor" in judge_text
+    assert "evidence_targets=stall, storefront_boundary, sidewalk_or_roadway" in judge_text
+    assert "open_risk_hints=street obstruction risk" in judge_text
+    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
+    assert "vlm1_risk_level=" not in judge_text
+    assert "vlm1_prelim_confidence=" not in judge_text
+    assert "vlm1_need_retake=" not in judge_text
