@@ -53,7 +53,7 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
         preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         user_text = (
-            f"Judge event {event_id}. "
+            f"event_id={event_id}; "
             f"category_code={category_code}; "
             f"evidence_targets={', '.join(preliminary.evidence_targets)}; "
             f"open_risk_hints={', '.join(preliminary.open_risk_hints) if preliminary.open_risk_hints else 'none'}; "
