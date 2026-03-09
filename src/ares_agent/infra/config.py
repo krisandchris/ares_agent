@@ -59,8 +59,12 @@ class PromptSettings(BaseModel):
 
 
 class ModelEndpointSettings(BaseModel):
+    base_url: HttpUrl
     endpoint: str
     model_name: str | None = None
+    timeout_ms: int = 10000
+    temperature: float | None = None
+    max_tokens: int | None = None
 
 
 class ModelClientSettings(BaseModel):

@@ -33,11 +33,17 @@ class SglangVlmPreliminaryClient:
         *,
         endpoint: str,
         model_name: str,
+        timeout_ms: int = 10000,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
         requester: Requester | None = None,
         prompt_builder: DefaultInspectionPromptBuilder | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name
+        self.timeout_ms = timeout_ms
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         self.requester = requester or _default_requester
         self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
 
@@ -45,8 +51,10 @@ class SglangVlmPreliminaryClient:
         payload = {
             "model": self.model_name,
             "messages": self.prompt_builder.build_preliminary_messages(seed),
-            "temperature": 0,
+            "temperature": self.temperature,
         }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)
         content = response["choices"][0]["message"]["content"]
         data = json.loads(content) if isinstance(content, str) else content
@@ -61,11 +69,17 @@ class SglangVlmJudgeClient:
         *,
         endpoint: str,
         model_name: str,
+        timeout_ms: int = 10000,
+        temperature: float = 0.0,
+        max_tokens: int | None = None,
         requester: Requester | None = None,
         prompt_builder: DefaultInspectionPromptBuilder | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name
+        self.timeout_ms = timeout_ms
+        self.temperature = temperature
+        self.max_tokens = max_tokens
         self.requester = requester or _default_requester
         self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
 
@@ -91,8 +105,10 @@ class SglangVlmJudgeClient:
                 relation_hint=relation_hint,
                 evidence_basis_summary=evidence_basis_summary,
             ),
-            "temperature": 0,
+            "temperature": self.temperature,
         }
+        if self.max_tokens is not None:
+            payload["max_tokens"] = self.max_tokens
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)
         content = response["choices"][0]["message"]["content"]
         data = json.loads(content) if isinstance(content, str) else content
@@ -106,9 +122,11 @@ class Sam3FastApiClient:
         self,
         *,
         endpoint: str,
+        timeout_ms: int = 10000,
         requester: Requester | None = None,
     ) -> None:
         self.endpoint = endpoint
+        self.timeout_ms = timeout_ms
         self.requester = requester or _default_requester
 
     def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:

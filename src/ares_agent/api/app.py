@@ -82,16 +82,32 @@ def _build_model_clients_from_config(
             raise ValueError("HTTP model client mode requires preliminary, judge, and sam3 endpoints")
         return (
             SglangVlmPreliminaryClient(
-                endpoint=config.model_clients.preliminary.endpoint,
+                endpoint=_build_http_endpoint(
+                    str(config.model_clients.preliminary.base_url),
+                    config.model_clients.preliminary.endpoint,
+                ),
                 model_name=config.model_clients.preliminary.model_name or "inspection-vlm",
+                timeout_ms=config.model_clients.preliminary.timeout_ms,
+                temperature=config.model_clients.preliminary.temperature or 0.0,
+                max_tokens=config.model_clients.preliminary.max_tokens,
                 prompt_builder=prompt_builder,
             ),
             Sam3FastApiClient(
-                endpoint=config.model_clients.sam3.endpoint,
+                endpoint=_build_http_endpoint(
+                    str(config.model_clients.sam3.base_url),
+                    config.model_clients.sam3.endpoint,
+                ),
+                timeout_ms=config.model_clients.sam3.timeout_ms,
             ),
             SglangVlmJudgeClient(
-                endpoint=config.model_clients.judge.endpoint,
+                endpoint=_build_http_endpoint(
+                    str(config.model_clients.judge.base_url),
+                    config.model_clients.judge.endpoint,
+                ),
                 model_name=config.model_clients.judge.model_name or "inspection-vlm",
+                timeout_ms=config.model_clients.judge.timeout_ms,
+                temperature=config.model_clients.judge.temperature or 0.0,
+                max_tokens=config.model_clients.judge.max_tokens,
                 prompt_builder=prompt_builder,
             ),
         )
@@ -101,6 +117,10 @@ def _build_model_clients_from_config(
         MockSegmentationClient(fixture_path=config.mock_clients.segmentation_fixture),
         MockEvidenceJudgeClient(fixture_path=config.mock_clients.evidence_judge_fixture),
     )
+
+
+def _build_http_endpoint(base_url: str, endpoint: str) -> str:
+    return f"{base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
 
 def _build_default_workflow(*, callback_sender: Sender | None = None) -> Workflow:

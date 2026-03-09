@@ -24,13 +24,23 @@ mock_clients:
 model_clients:
   mode: mock
   preliminary:
+    base_url: http://127.0.0.1:30000
     endpoint: /mock/vlm/preliminary
     model_name: inspection-vlm
+    timeout_ms: 12000
+    temperature: 0.1
+    max_tokens: 1024
   judge:
+    base_url: http://127.0.0.1:30001
     endpoint: /mock/vlm/judge
     model_name: inspection-vlm
+    timeout_ms: 15000
+    temperature: 0.0
+    max_tokens: 1024
   sam3:
+    base_url: http://127.0.0.1:8001
     endpoint: /mock/sam3/segment
+    timeout_ms: 10000
 
 prompts:
   preliminary:
