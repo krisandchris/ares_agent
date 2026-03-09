@@ -102,12 +102,15 @@
 - `event_id`
 - `frame_id`
 - `stage=preliminary`
-- 疑似违规类别及 Top-K
-- 风险等级
-- 初判置信度
-- 是否建议补拍/复拍
-- 是否需要进入异步精检
-- 开放风险提示
+- `environment_analysis`
+- `scene_elements`
+- `evidence_reasoning`
+- `segmentation_targets`
+- `relation_hint`
+- `violation_category`
+- `open_risk_type`
+- `confidence`
+- `async_enqueued`
 
 ### 5.2 异步链路
 
@@ -132,19 +135,22 @@
 
 负责：
 
-- 标准类目初判
-- 开放风险描述
-- 风险等级输出
-- 补拍/复拍建议
-- 为异步链路提供候选目标提示
+- 完整环境分析
+- 标准类目或开放风险判断
+- 证据解释生成
+- 为异步链路提供候选分割目标
+- 提供目标关系提示
 
 建议输出：
 
-- `closed_set_topk`
-- `open_risk_hints`
-- `risk_level`
-- `need_retake`
-- `evidence_targets`
+- `environment_analysis`
+- `scene_elements`
+- `evidence_reasoning`
+- `segmentation_targets`
+- `relation_hint`
+- `violation_category`
+- `open_risk_type`
+- `confidence`
 
 ### 6.2 SAM3：违规依据提取
 
@@ -282,10 +288,7 @@
 - `stage`
 - `category_code`
 - `category_name`
-- `risk_level`
-- `prelim_confidence`
 - `final_confidence`
-- `need_retake`
 - `review_required`
 - `open_risk_flag`
 - `open_risk_text`
@@ -319,11 +322,14 @@
 - `event_id`
 - `frame_id`
 - `stage=preliminary`
-- `suspected_categories`
-- `risk_level`
-- `prelim_confidence`
-- `need_retake`
-- `open_risk_hints`
+- `environment_analysis`
+- `scene_elements`
+- `evidence_reasoning`
+- `segmentation_targets`
+- `relation_hint`
+- `violation_category`
+- `open_risk_type`
+- `confidence`
 - `async_enqueued`
 
 #### refined_event_feedback
