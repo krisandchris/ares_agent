@@ -17,6 +17,14 @@ from ares_agent.services.feedback import build_preliminary_feedback, build_refin
 class PreliminaryResult(BaseModel):
     """Output from the first VLM pass."""
 
+    environment_analysis: str = ""
+    scene_elements: list[str] = Field(default_factory=list)
+    evidence_reasoning: str = ""
+    violation_category: str = ""
+    open_risk_type: str = ""
+    confidence: float = Field(default=0.0, ge=0.0, le=1.0)
+    segmentation_targets: list[str] = Field(default_factory=list)
+    relation_hint: str = ""
     suspected_categories: list[str]
     risk_level: str
     prelim_confidence: float = Field(ge=0.0, le=1.0)
@@ -28,6 +36,10 @@ class PreliminaryResult(BaseModel):
 class SegmentationResult(BaseModel):
     """Evidence extraction output from SAM3."""
 
+    overlay_image: str | None = None
+    mask_labels: list[str] = Field(default_factory=list)
+    relation_hint: str = ""
+    segmentation_status: str = "ok"
     mask_uri: str | None = None
     crop_image_uris: list[str] = Field(default_factory=list)
     overlay_image_uris: list[str] = Field(default_factory=list)
@@ -70,6 +82,10 @@ class EvidenceJudgeClient(Protocol):
         *,
         event_id: str,
         category_code: str,
+        overlay_image: str | None = None,
+        mask_labels: list[str] | None = None,
+        relation_hint: str = "",
+        segmentation_status: str = "ok",
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
@@ -155,7 +171,8 @@ def _segmentation_step_factory(*, segmentation_client: SegmentationClient) -> St
             preliminary_content = step_input.get_step_content("preliminary") or {}
             event_id = preliminary_content["event_id"]
             preliminary = preliminary_content["preliminary"]
-            segmentation = segmentation_client.segment(event_id, preliminary["evidence_targets"])
+            segmentation_targets = preliminary.get("segmentation_targets") or preliminary["evidence_targets"]
+            segmentation = segmentation_client.segment(event_id, segmentation_targets)
             return StepOutput(
                 content={
                     **preliminary_content,
@@ -180,10 +197,15 @@ def _evidence_judge_step_factory(
             event_id = segmentation_content["event_id"]
             preliminary = segmentation_content["preliminary"]
             segmentation = segmentation_content["segmentation"]
-            final_category = preliminary["suspected_categories"][0]
+            final_category = preliminary.get("violation_category") or preliminary["suspected_categories"][0]
             judgment = evidence_judge_client.judge(
                 event_id=event_id,
                 category_code=final_category,
+                overlay_image=segmentation.get("overlay_image")
+                or (segmentation.get("overlay_image_uris") or [None])[0],
+                mask_labels=segmentation.get("mask_labels") or [],
+                relation_hint=segmentation.get("relation_hint") or preliminary.get("relation_hint", ""),
+                segmentation_status=segmentation.get("segmentation_status", "ok"),
                 evidence_basis_summary=segmentation["evidence_basis_summary"],
                 preliminary=PreliminaryResult.model_validate(preliminary),
             )

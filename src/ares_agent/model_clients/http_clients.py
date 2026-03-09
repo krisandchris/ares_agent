@@ -74,9 +74,14 @@ class SglangVlmJudgeClient:
         *,
         event_id: str,
         category_code: str,
+        overlay_image: str | None = None,
+        mask_labels: list[str] | None = None,
+        relation_hint: str = "",
+        segmentation_status: str = "ok",
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
+        del overlay_image, mask_labels, relation_hint, segmentation_status
         payload = {
             "model": self.model_name,
             "messages": self.prompt_builder.build_judge_messages(

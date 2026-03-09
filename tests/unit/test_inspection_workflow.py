@@ -17,6 +17,14 @@ class FakePreliminaryClient:
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
         self.calls.append(f"preliminary:{seed.frame_id}")
         return PreliminaryResult(
+            environment_analysis="street storefront scene with sidewalk occupation",
+            scene_elements=["storefront", "stall", "sidewalk"],
+            evidence_reasoning="stall extends beyond storefront boundary into sidewalk",
+            violation_category="road_occupying_vendor",
+            open_risk_type="",
+            confidence=0.91,
+            segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+            relation_hint="stall overlaps sidewalk outside storefront boundary",
             suspected_categories=["road_occupying_vendor"],
             risk_level="high",
             prelim_confidence=0.91,
@@ -33,6 +41,10 @@ class FakeSegmentationClient:
     def segment(self, event_id: str, targets: list[str]) -> SegmentationResult:
         self.calls.append(f"segmentation:{event_id}:{','.join(targets)}")
         return SegmentationResult(
+            overlay_image="s3://bucket/overlay-1.png",
+            mask_labels=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+            relation_hint="stall overlaps sidewalk outside storefront boundary",
+            segmentation_status="ok",
             mask_uri="s3://bucket/mask.png",
             crop_image_uris=["s3://bucket/crop-1.png"],
             overlay_image_uris=["s3://bucket/overlay-1.png"],
@@ -49,10 +61,21 @@ class FakeJudgeClient:
         *,
         event_id: str,
         category_code: str,
+        overlay_image: str | None,
+        mask_labels: list[str],
+        relation_hint: str,
+        segmentation_status: str,
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
-        assert preliminary.suspected_categories == [category_code]
+        assert category_code == "road_occupying_vendor"
+        assert overlay_image == "s3://bucket/overlay-1.png"
+        assert mask_labels == ["stall", "storefront_boundary", "sidewalk_or_roadway"]
+        assert relation_hint == "stall overlaps sidewalk outside storefront boundary"
+        assert segmentation_status == "ok"
+        assert preliminary.violation_category == category_code
+        assert preliminary.segmentation_targets == ["stall", "storefront_boundary", "sidewalk_or_roadway"]
+        assert preliminary.relation_hint == relation_hint
         self.calls.append(f"judge:{event_id}:{category_code}")
         return EvidenceJudgeResult(
             final_category=category_code,

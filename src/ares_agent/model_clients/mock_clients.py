@@ -61,8 +61,21 @@ class MockEvidenceJudgeClient:
         *,
         event_id: str,
         category_code: str,
+        overlay_image: str | None = None,
+        mask_labels: list[str] | None = None,
+        relation_hint: str = "",
+        segmentation_status: str = "ok",
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
-        del event_id, category_code, evidence_basis_summary, preliminary
+        del (
+            event_id,
+            category_code,
+            overlay_image,
+            mask_labels,
+            relation_hint,
+            segmentation_status,
+            evidence_basis_summary,
+            preliminary,
+        )
         return self.judge_from_fixture()
