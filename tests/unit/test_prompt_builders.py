@@ -43,8 +43,11 @@ def test_default_prompt_builder_builds_judge_messages_with_preliminary_context()
     assert messages[0]["role"] == "system"
     assert "evidence judge" in messages[0]["content"].lower()
     user_text = messages[1]["content"][0]["text"]
-    assert "road_occupying_vendor" in user_text
+    assert "evt_123" in user_text
     assert "risk_level=high" in user_text
     assert "prelim_confidence=0.91" in user_text
-    assert "evidence_targets=stall, storefront_boundary, sidewalk_or_roadway" in user_text
-    assert "open_risk_hints=street obstruction risk" in user_text
+    assert "need_retake=False" in user_text
+    assert "road_occupying_vendor" not in user_text
+    assert "evidence_targets=" not in user_text
+    assert "open_risk_hints=" not in user_text
+    assert "evidence_basis_summary=" not in user_text

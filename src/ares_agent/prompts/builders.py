@@ -53,13 +53,10 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
         preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         user_text = (
-            f"Judge event {event_id} for category {category_code}. "
+            f"Judge event {event_id}. "
             f"risk_level={preliminary.risk_level}; "
             f"prelim_confidence={preliminary.prelim_confidence}; "
-            f"need_retake={preliminary.need_retake}; "
-            f"evidence_targets={', '.join(preliminary.evidence_targets)}; "
-            f"open_risk_hints={', '.join(preliminary.open_risk_hints) if preliminary.open_risk_hints else 'none'}; "
-            f"evidence_basis_summary={evidence_basis_summary}"
+            f"need_retake={preliminary.need_retake}"
         )
         return [
             {"role": "system", "content": "You are an evidence judge for visual inspection."},
@@ -111,13 +108,9 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     ) -> list[dict[str, Any]]:
         dynamic_user_text = (
             f"event_id={event_id}\n"
-            f"candidate_category={category_code}\n"
             f"vlm1_risk_level={preliminary.risk_level}\n"
             f"vlm1_prelim_confidence={preliminary.prelim_confidence}\n"
-            f"vlm1_need_retake={preliminary.need_retake}\n"
-            f"vlm1_evidence_targets={', '.join(preliminary.evidence_targets)}\n"
-            f"vlm1_open_risk_hints={', '.join(preliminary.open_risk_hints) if preliminary.open_risk_hints else 'none'}\n"
-            f"evidence_basis_summary={evidence_basis_summary}"
+            f"vlm1_need_retake={preliminary.need_retake}"
         )
         return [
             {"role": "system", "content": self.judge_system_template.strip()},
