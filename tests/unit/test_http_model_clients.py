@@ -19,7 +19,7 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
     )
     sam_fixture = tmp_path / "sam.json"
     sam_fixture.write_text(
-        '{"mask_uri":"s3://mock/wiring_mask.png","crop_image_uris":["s3://mock/wiring_crop.png"],"overlay_image_uris":["s3://mock/wiring_overlay.png"],"evidence_basis_summary":"wire connects storefront charger to electric vehicle"}',
+        '{"overlay_image":"s3://mock/wiring_overlay.png","mask_labels":["wire","charger","electric_vehicle"],"relation_hint":"wire connects storefront charger to electric vehicle","segmentation_status":"ok","mask_uri":"s3://mock/wiring_mask.png","crop_image_uris":["s3://mock/wiring_crop.png"],"overlay_image_uris":["s3://mock/wiring_overlay.png"],"evidence_basis_summary":"wire connects storefront charger to electric vehicle"}',
         encoding="utf-8",
     )
     judge_fixture = tmp_path / "judge.json"
@@ -85,4 +85,5 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
 
     assert prelim.suspected_categories == ["unauthorized_electrical_wiring"]
     assert sam.mask_uri == "s3://mock/wiring_mask.png"
+    assert sam.overlay_image == "s3://mock/wiring_overlay.png"
     assert judge.final_category == "unauthorized_electrical_wiring"
