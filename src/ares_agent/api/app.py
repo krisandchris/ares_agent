@@ -13,12 +13,18 @@ from ares_agent.api.schemas import EventFailureResponse, EventQueryResponse, Ins
 from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.infra.event_store import InMemoryEventStore
+from ares_agent.model_clients.http_clients import (
+    Sam3FastApiClient,
+    SglangVlmJudgeClient,
+    SglangVlmPreliminaryClient,
+)
 from ares_agent.model_clients.mock_clients import (
     MockEvidenceJudgeClient,
     MockPreliminaryClient,
     MockSegmentationClient,
 )
 from ares_agent.plugins.http_callback import HttpCallbackPlugin, Sender
+from ares_agent.prompts.builders import ConfigurableInspectionPromptBuilder, DefaultInspectionPromptBuilder
 from ares_agent.workflows.inspection_event_workflow import build_inspection_event_workflow
 
 
@@ -31,16 +37,11 @@ def _build_workflow_from_config(
     *,
     callback_sender: Sender | None = None,
 ) -> Workflow:
+    preliminary_client, segmentation_client, evidence_judge_client = _build_model_clients_from_config(config)
     return build_inspection_event_workflow(
-        preliminary_client=MockPreliminaryClient(
-            fixture_path=config.mock_clients.preliminary_fixture
-        ),
-        segmentation_client=MockSegmentationClient(
-            fixture_path=config.mock_clients.segmentation_fixture
-        ),
-        evidence_judge_client=MockEvidenceJudgeClient(
-            fixture_path=config.mock_clients.evidence_judge_fixture
-        ),
+        preliminary_client=preliminary_client,
+        segmentation_client=segmentation_client,
+        evidence_judge_client=evidence_judge_client,
         sink_plugin=HttpCallbackPlugin(
             endpoint=str(config.callback.endpoint),
             auth_token=config.callback.auth_token,
@@ -55,6 +56,50 @@ def _build_workflow_from_config(
                 "send_refined": config.callback.send_refined,
             }
         },
+    )
+
+
+def _build_prompt_builder_from_config(config: AppConfig) -> DefaultInspectionPromptBuilder:
+    if config.prompts is None:
+        return DefaultInspectionPromptBuilder()
+    return ConfigurableInspectionPromptBuilder(
+        preliminary_system_template=config.prompts.preliminary.system,
+        preliminary_user_template=config.prompts.preliminary.user,
+        judge_system_template=config.prompts.judge.system,
+    )
+
+
+def _build_model_clients_from_config(
+    config: AppConfig,
+):
+    if config.model_clients.mode == "http":
+        prompt_builder = _build_prompt_builder_from_config(config)
+        if (
+            config.model_clients.preliminary is None
+            or config.model_clients.judge is None
+            or config.model_clients.sam3 is None
+        ):
+            raise ValueError("HTTP model client mode requires preliminary, judge, and sam3 endpoints")
+        return (
+            SglangVlmPreliminaryClient(
+                endpoint=config.model_clients.preliminary.endpoint,
+                model_name=config.model_clients.preliminary.model_name or "inspection-vlm",
+                prompt_builder=prompt_builder,
+            ),
+            Sam3FastApiClient(
+                endpoint=config.model_clients.sam3.endpoint,
+            ),
+            SglangVlmJudgeClient(
+                endpoint=config.model_clients.judge.endpoint,
+                model_name=config.model_clients.judge.model_name or "inspection-vlm",
+                prompt_builder=prompt_builder,
+            ),
+        )
+
+    return (
+        MockPreliminaryClient(fixture_path=config.mock_clients.preliminary_fixture),
+        MockSegmentationClient(fixture_path=config.mock_clients.segmentation_fixture),
+        MockEvidenceJudgeClient(fixture_path=config.mock_clients.evidence_judge_fixture),
     )
 
 

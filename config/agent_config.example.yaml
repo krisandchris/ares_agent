@@ -21,6 +21,17 @@ mock_clients:
   segmentation_fixture: ../fixtures/mock_sam3/road_occupying_vendor.json
   evidence_judge_fixture: ../fixtures/mock_vlm_judge/road_occupying_vendor.json
 
+model_clients:
+  mode: mock
+  preliminary:
+    endpoint: /mock/vlm/preliminary
+    model_name: inspection-vlm
+  judge:
+    endpoint: /mock/vlm/judge
+    model_name: inspection-vlm
+  sam3:
+    endpoint: /mock/sam3/segment
+
 prompts:
   preliminary:
     system: |

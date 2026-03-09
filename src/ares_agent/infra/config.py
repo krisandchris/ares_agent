@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import Literal
 
 import yaml
 from pydantic import BaseModel, HttpUrl
@@ -57,12 +58,25 @@ class PromptSettings(BaseModel):
     judge: JudgePromptSettings
 
 
+class ModelEndpointSettings(BaseModel):
+    endpoint: str
+    model_name: str | None = None
+
+
+class ModelClientSettings(BaseModel):
+    mode: Literal["mock", "http"] = "mock"
+    preliminary: ModelEndpointSettings | None = None
+    judge: ModelEndpointSettings | None = None
+    sam3: ModelEndpointSettings | None = None
+
+
 class AppConfig(BaseModel):
     agent: AgentSettings = AgentSettings()
     orchestrator: OrchestratorSettings = OrchestratorSettings()
     callback: CallbackSettings
     mock_clients: MockClientSettings
     prompts: PromptSettings | None = None
+    model_clients: ModelClientSettings = ModelClientSettings()
     review: ReviewSettings = ReviewSettings()
 
 
