@@ -70,3 +70,5 @@
 - Verified with `uv run pytest tests/unit` -> 36 tests passed.
 - Added local VLM/SAM3 stub endpoints and HTTP-style clients that simulate deployed services.
 - Verified with `uv run pytest tests/unit` -> 40 tests passed.
+- Fixed the hardcoded-prompt issue by introducing prompt builders and preliminary-context-aware VLM-2 prompting.
+- Verified with `uv run pytest tests/unit` -> 47 tests passed.

@@ -21,5 +21,17 @@ mock_clients:
   segmentation_fixture: ../fixtures/mock_sam3/road_occupying_vendor.json
   evidence_judge_fixture: ../fixtures/mock_vlm_judge/road_occupying_vendor.json
 
+prompts:
+  preliminary:
+    system: |
+      You are a visual preliminary inspection model.
+    user: |
+      Analyze frame {frame_id} for inspection violations.
+  judge:
+    system: |
+      You are an evidence judge for visual inspection.
+    user: |
+      Judge event {event_id} for category {category_code}. risk_level={risk_level}; prelim_confidence={prelim_confidence}; need_retake={need_retake}; evidence_targets={evidence_targets}; open_risk_hints={open_risk_hints}; evidence_basis_summary={evidence_basis_summary}
+
 review:
   enable_manual_review: true

@@ -43,11 +43,22 @@ class MockClientSettings(BaseModel):
     evidence_judge_fixture: Path
 
 
+class PromptTemplatePair(BaseModel):
+    system: str
+    user: str
+
+
+class PromptSettings(BaseModel):
+    preliminary: PromptTemplatePair
+    judge: PromptTemplatePair
+
+
 class AppConfig(BaseModel):
     agent: AgentSettings = AgentSettings()
     orchestrator: OrchestratorSettings = OrchestratorSettings()
     callback: CallbackSettings
     mock_clients: MockClientSettings
+    prompts: PromptSettings | None = None
     review: ReviewSettings = ReviewSettings()
 
 

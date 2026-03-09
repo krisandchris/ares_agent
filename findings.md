@@ -200,3 +200,8 @@
   - stub endpoints respond with expected shapes
   - HTTP clients parse them into domain results
   - the inspection workflow runs successfully through the HTTP-style clients
+- Prompt generation is no longer hardcoded inside the VLM HTTP clients.
+- Root-cause fix:
+  - prompt construction was extracted into `src/ares_agent/prompts/builders.py`
+  - `VLM-2` now receives `VLM-1` preliminary output as prompt context
+  - YAML config now supports prompt templates under `prompts.preliminary` and `prompts.judge`

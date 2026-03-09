@@ -15,6 +15,7 @@ Implemented today:
 - in-memory event result storage
 - event query route by `event_id`
 - success and failure path unit tests
+- configurable VLM prompt templates via YAML
 
 Not implemented yet:
 
