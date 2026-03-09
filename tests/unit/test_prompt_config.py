@@ -32,8 +32,6 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
                 "  judge:",
                 "    system: |",
                 "      You are a custom judge model.",
-                "    user: |",
-                "      Event={event_id}; Category={category_code}; Risk={risk_level}; Evidence={evidence_basis_summary}",
             ]
         ),
         encoding="utf-8",
@@ -44,18 +42,13 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
     assert "custom preliminary model" in config.prompts.preliminary.system
     assert "Frame={frame_id}" in config.prompts.preliminary.user
     assert "custom judge model" in config.prompts.judge.system
-    assert "Risk={risk_level}" in config.prompts.judge.user
 
 
 def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() -> None:
     builder = ConfigurableInspectionPromptBuilder(
-        preliminary_system_template="ignored",
-        preliminary_user_template="ignored",
+        preliminary_system_template="You are a custom preliminary model.",
+        preliminary_user_template="Frame={frame_id}; Image={image_uri}",
         judge_system_template="You are a custom judge model.",
-        judge_user_template=(
-            "Event={event_id}; Category={category_code}; Risk={risk_level}; "
-            "Targets={evidence_targets}; Hints={open_risk_hints}; Evidence={evidence_basis_summary}"
-        ),
     )
 
     messages = builder.build_judge_messages(
@@ -74,8 +67,10 @@ def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() 
 
     assert messages[0]["content"] == "You are a custom judge model."
     user_text = messages[1]["content"][0]["text"]
-    assert "Event=evt_123" in user_text
-    assert "Category=road_occupying_vendor" in user_text
-    assert "Risk=high" in user_text
-    assert "Targets=stall, storefront_boundary, sidewalk_or_roadway" in user_text
-    assert "Hints=street obstruction risk" in user_text
+    assert "event_id=evt_123" in user_text
+    assert "candidate_category=road_occupying_vendor" in user_text
+    assert "vlm1_risk_level=high" in user_text
+    assert "vlm1_prelim_confidence=0.91" in user_text
+    assert "vlm1_evidence_targets=stall, storefront_boundary, sidewalk_or_roadway" in user_text
+    assert "vlm1_open_risk_hints=street obstruction risk" in user_text
+    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in user_text

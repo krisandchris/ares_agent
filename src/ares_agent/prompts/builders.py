@@ -79,7 +79,6 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     preliminary_system_template: str
     preliminary_user_template: str
     judge_system_template: str
-    judge_user_template: str
 
     def build_preliminary_messages(self, seed: EventSeed) -> list[dict[str, Any]]:
         return [
@@ -110,6 +109,16 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
+        dynamic_user_text = (
+            f"event_id={event_id}\n"
+            f"candidate_category={category_code}\n"
+            f"vlm1_risk_level={preliminary.risk_level}\n"
+            f"vlm1_prelim_confidence={preliminary.prelim_confidence}\n"
+            f"vlm1_need_retake={preliminary.need_retake}\n"
+            f"vlm1_evidence_targets={', '.join(preliminary.evidence_targets)}\n"
+            f"vlm1_open_risk_hints={', '.join(preliminary.open_risk_hints) if preliminary.open_risk_hints else 'none'}\n"
+            f"evidence_basis_summary={evidence_basis_summary}"
+        )
         return [
             {"role": "system", "content": self.judge_system_template.strip()},
             {
@@ -117,18 +126,7 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
                 "content": [
                     {
                         "type": "text",
-                        "text": self.judge_user_template.format(
-                            event_id=event_id,
-                            category_code=category_code,
-                            risk_level=preliminary.risk_level,
-                            prelim_confidence=preliminary.prelim_confidence,
-                            need_retake=preliminary.need_retake,
-                            evidence_targets=", ".join(preliminary.evidence_targets),
-                            open_risk_hints=", ".join(preliminary.open_risk_hints)
-                            if preliminary.open_risk_hints
-                            else "none",
-                            evidence_basis_summary=evidence_basis_summary,
-                        ).strip(),
+                        "text": dynamic_user_text,
                     },
                 ],
             },

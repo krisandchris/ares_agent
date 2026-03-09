@@ -48,9 +48,13 @@ class PromptTemplatePair(BaseModel):
     user: str
 
 
+class JudgePromptSettings(BaseModel):
+    system: str
+
+
 class PromptSettings(BaseModel):
     preliminary: PromptTemplatePair
-    judge: PromptTemplatePair
+    judge: JudgePromptSettings
 
 
 class AppConfig(BaseModel):

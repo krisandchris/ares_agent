@@ -131,10 +131,9 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
         model_name="inspection-vlm",
         requester=fake_requester,
         prompt_builder=ConfigurableInspectionPromptBuilder(
-            preliminary_system_template="ignored",
-            preliminary_user_template="ignored",
+            preliminary_system_template="You are a custom preliminary model.",
+            preliminary_user_template="Frame={frame_id}; Image={image_uri}",
             judge_system_template="Custom judge system",
-            judge_user_template="Risk={risk_level}; Evidence={evidence_basis_summary}",
         ),
     )
 
@@ -153,4 +152,6 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
     )
 
     assert captured[0]["messages"][0]["content"] == "Custom judge system"
-    assert captured[0]["messages"][1]["content"][0]["text"] == "Risk=high; Evidence=stall overlaps sidewalk boundary"
+    judge_text = captured[0]["messages"][1]["content"][0]["text"]
+    assert "vlm1_risk_level=high" in judge_text
+    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
