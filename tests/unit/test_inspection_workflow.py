@@ -50,7 +50,9 @@ class FakeJudgeClient:
         event_id: str,
         category_code: str,
         evidence_basis_summary: str,
+        preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
+        assert preliminary.suspected_categories == [category_code]
         self.calls.append(f"judge:{event_id}:{category_code}")
         return EvidenceJudgeResult(
             final_category=category_code,

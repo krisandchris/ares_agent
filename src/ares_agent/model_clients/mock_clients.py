@@ -62,6 +62,7 @@ class MockEvidenceJudgeClient:
         event_id: str,
         category_code: str,
         evidence_basis_summary: str,
+        preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
-        del event_id, category_code, evidence_basis_summary
+        del event_id, category_code, evidence_basis_summary, preliminary
         return self.judge_from_fixture()

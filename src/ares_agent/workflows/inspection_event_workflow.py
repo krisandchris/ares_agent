@@ -71,6 +71,7 @@ class EvidenceJudgeClient(Protocol):
         event_id: str,
         category_code: str,
         evidence_basis_summary: str,
+        preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
         """Judge whether the evidence supports the candidate category."""
 
@@ -184,6 +185,7 @@ def _evidence_judge_step_factory(
                 event_id=event_id,
                 category_code=final_category,
                 evidence_basis_summary=segmentation["evidence_basis_summary"],
+                preliminary=PreliminaryResult.model_validate(preliminary),
             )
             refined_feedback = build_refined_feedback(
                 event_id=event_id,

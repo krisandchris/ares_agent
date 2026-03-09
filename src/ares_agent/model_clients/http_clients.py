@@ -7,6 +7,7 @@ from typing import Callable
 from urllib import request
 
 from ares_agent.domain.events import EventSeed
+from ares_agent.prompts.builders import DefaultInspectionPromptBuilder
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
     PreliminaryResult,
@@ -33,24 +34,17 @@ class SglangVlmPreliminaryClient:
         endpoint: str,
         model_name: str,
         requester: Requester | None = None,
+        prompt_builder: DefaultInspectionPromptBuilder | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name
         self.requester = requester or _default_requester
+        self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
 
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
         payload = {
             "model": self.model_name,
-            "messages": [
-                {"role": "system", "content": "preliminary inspection"},
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": f"Analyze frame {seed.frame_id} for inspection violations."},
-                        {"type": "image_url", "image_url": {"url": seed.image_uri}},
-                    ],
-                },
-            ],
+            "messages": self.prompt_builder.build_preliminary_messages(seed),
             "temperature": 0,
         }
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)
@@ -68,10 +62,12 @@ class SglangVlmJudgeClient:
         endpoint: str,
         model_name: str,
         requester: Requester | None = None,
+        prompt_builder: DefaultInspectionPromptBuilder | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name
         self.requester = requester or _default_requester
+        self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
 
     def judge(
         self,
@@ -79,24 +75,16 @@ class SglangVlmJudgeClient:
         event_id: str,
         category_code: str,
         evidence_basis_summary: str,
+        preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
         payload = {
             "model": self.model_name,
-            "messages": [
-                {"role": "system", "content": "evidence judge"},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                f"Judge event {event_id} for category {category_code}. "
-                                f"Evidence summary: {evidence_basis_summary}"
-                            ),
-                        }
-                    ],
-                },
-            ],
+            "messages": self.prompt_builder.build_judge_messages(
+                event_id=event_id,
+                category_code=category_code,
+                evidence_basis_summary=evidence_basis_summary,
+                preliminary=preliminary,
+            ),
             "temperature": 0,
         }
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)

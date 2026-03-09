@@ -78,6 +78,7 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
         event_id="evt_123",
         category_code=prelim.suspected_categories[0],
         evidence_basis_summary=sam.evidence_basis_summary,
+        preliminary=prelim,
     )
 
     assert prelim.suspected_categories == ["unauthorized_electrical_wiring"]
