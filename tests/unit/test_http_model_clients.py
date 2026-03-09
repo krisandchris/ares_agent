@@ -73,10 +73,12 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
             occur_time="2026-03-09T10:40:00Z",
         )
     )
-    sam = sam3_client.segment("evt_123", prelim.evidence_targets)
+    sam = sam3_client.segment("s3://street/frame-003.jpg", prelim.evidence_targets)
     judge = judge_client.judge(
-        event_id="evt_123",
         category_code=prelim.suspected_categories[0],
+        overlay_image=sam.overlay_image,
+        mask_labels=sam.mask_labels,
+        relation_hint=sam.relation_hint,
         evidence_basis_summary=sam.evidence_basis_summary,
         preliminary=prelim,
     )

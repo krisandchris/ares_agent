@@ -19,10 +19,10 @@ class PromptBuilder:
         self,
         *,
         category_code: str,
+        overlay_image: str | None,
         mask_labels: list[str],
         relation_hint: str,
         evidence_basis_summary: str,
-        preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         raise NotImplementedError
 
@@ -49,10 +49,10 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
         self,
         *,
         category_code: str,
+        overlay_image: str | None,
         mask_labels: list[str],
         relation_hint: str,
         evidence_basis_summary: str,
-        preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         user_text = (
             f"category_code={category_code}; "
@@ -60,13 +60,14 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
             f"relation_hint={relation_hint}; "
             f"evidence_basis_summary={evidence_basis_summary}"
         )
+        content: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
+        if overlay_image:
+            content.append({"type": "image_url", "image_url": {"url": overlay_image}})
         return [
             {"role": "system", "content": "You are an evidence judge for visual inspection."},
             {
                 "role": "user",
-                "content": [
-                    {"type": "text", "text": user_text},
-                ],
+                "content": content,
             },
         ]
 
@@ -104,10 +105,10 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
         self,
         *,
         category_code: str,
+        overlay_image: str | None,
         mask_labels: list[str],
         relation_hint: str,
         evidence_basis_summary: str,
-        preliminary: PreliminaryResult,
     ) -> list[dict[str, Any]]:
         dynamic_user_text = (
             f"category_code={category_code}\n"
@@ -115,15 +116,13 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
             f"relation_hint={relation_hint}\n"
             f"evidence_basis_summary={evidence_basis_summary}"
         )
+        content: list[dict[str, Any]] = [{"type": "text", "text": dynamic_user_text}]
+        if overlay_image:
+            content.append({"type": "image_url", "image_url": {"url": overlay_image}})
         return [
             {"role": "system", "content": self.judge_system_template.strip()},
             {
                 "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": dynamic_user_text,
-                    },
-                ],
+                "content": content,
             },
         ]

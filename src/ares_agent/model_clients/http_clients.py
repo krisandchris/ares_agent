@@ -72,7 +72,7 @@ class SglangVlmJudgeClient:
     def judge(
         self,
         *,
-        event_id: str,
+        event_id: str | None = None,
         category_code: str,
         overlay_image: str | None = None,
         mask_labels: list[str] | None = None,
@@ -81,15 +81,15 @@ class SglangVlmJudgeClient:
         evidence_basis_summary: str,
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
-        del event_id, overlay_image, segmentation_status
+        del event_id, segmentation_status, preliminary
         payload = {
             "model": self.model_name,
             "messages": self.prompt_builder.build_judge_messages(
                 category_code=category_code,
+                overlay_image=overlay_image,
                 mask_labels=mask_labels or [],
                 relation_hint=relation_hint,
                 evidence_basis_summary=evidence_basis_summary,
-                preliminary=preliminary,
             ),
             "temperature": 0,
         }
@@ -111,9 +111,9 @@ class Sam3FastApiClient:
         self.endpoint = endpoint
         self.requester = requester or _default_requester
 
-    def segment(self, event_id: str, targets: list[str]) -> SegmentationResult:
+    def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
         payload = {
-            "event_id": event_id,
+            "image_uri": image_uri,
             "targets": targets,
         }
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)

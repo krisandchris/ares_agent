@@ -99,11 +99,13 @@ def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
     )
 
     assert captured
-    judge_text = captured[0]["messages"][1]["content"][0]["text"]
+    user_content = captured[0]["messages"][1]["content"]
+    judge_text = user_content[0]["text"]
     assert "category_code=road_occupying_vendor" in judge_text
     assert "mask_labels=stall, storefront_boundary, sidewalk_or_roadway" in judge_text
     assert "relation_hint=stall overlaps sidewalk outside storefront boundary" in judge_text
     assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
+    assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
     assert "event_id=" not in judge_text
     assert "segmentation_status=" not in judge_text
     assert "risk_level=" not in judge_text
@@ -166,13 +168,12 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
     )
 
     assert captured[0]["messages"][0]["content"] == "Custom judge system"
-    judge_text = captured[0]["messages"][1]["content"][0]["text"]
+    user_content = captured[0]["messages"][1]["content"]
+    judge_text = user_content[0]["text"]
     assert "category_code=road_occupying_vendor" in judge_text
     assert "mask_labels=stall, storefront_boundary, sidewalk_or_roadway" in judge_text
     assert "relation_hint=stall overlaps sidewalk outside storefront boundary" in judge_text
     assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
+    assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
     assert "event_id=" not in judge_text
     assert "segmentation_status=" not in judge_text
-    assert "vlm1_risk_level=" not in judge_text
-    assert "vlm1_prelim_confidence=" not in judge_text
-    assert "vlm1_need_retake=" not in judge_text

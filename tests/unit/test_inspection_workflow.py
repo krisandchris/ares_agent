@@ -121,7 +121,7 @@ def test_inspection_workflow_runs_two_callbacks_with_shared_event_id() -> None:
 
     assert order == [
         "preliminary:frame-001",
-        f"segmentation:{callback_payloads[0].event_id}:stall,storefront_boundary,sidewalk_or_roadway",
+        "segmentation:s3://street/frame-001.jpg:stall,storefront_boundary,sidewalk_or_roadway",
         f"judge:{callback_payloads[0].event_id}:road_occupying_vendor",
     ]
     assert len(callback_payloads) == 2

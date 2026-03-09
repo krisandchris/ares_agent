@@ -21,7 +21,7 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
     )
     sam_fixture = tmp_path / "sam.json"
     sam_fixture.write_text(
-        '{"mask_uri":"s3://mock/motor_mask.png","crop_image_uris":["s3://mock/motor_crop.png"],"overlay_image_uris":["s3://mock/motor_overlay.png"],"evidence_basis_summary":"vehicle overlaps sidewalk boundary"}',
+        '{"overlay_image":"s3://mock/motor_overlay.png","mask_labels":["motor_vehicle","sidewalk_or_bus_stop_or_unmarked_area"],"relation_hint":"vehicle overlaps sidewalk boundary","segmentation_status":"ok","mask_uri":"s3://mock/motor_mask.png","crop_image_uris":["s3://mock/motor_crop.png"],"overlay_image_uris":["s3://mock/motor_overlay.png"],"evidence_basis_summary":"vehicle overlaps sidewalk boundary"}',
         encoding="utf-8",
     )
     judge_fixture = tmp_path / "judge.json"
@@ -47,7 +47,10 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
     stub_app = create_app(config_path=config_path)
     stub_client = TestClient(stub_app)
 
+    captured_requests: list[tuple[str, dict[str, object]]] = []
+
     def local_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+        captured_requests.append((url, payload))
         response = stub_client.post(url, json=payload, headers=headers)
         return response.json()
 
@@ -88,3 +91,9 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
     assert output.content["stage"] == "refined"
     assert output.content["refined_feedback"]["final_category"] == "motor_vehicle_illegal_parking"
     assert [payload["stage"] for payload in callback_payloads] == ["preliminary", "refined"]
+    sam_request = next(payload for url, payload in captured_requests if url == "/mock/sam3/segment")
+    assert sam_request["image_uri"] == "s3://street/frame-005.jpg"
+    judge_request = next(payload for url, payload in captured_requests if url == "/mock/vlm/judge")
+    user_content = judge_request["messages"][1]["content"]
+    assert user_content[0]["text"].startswith("category_code=motor_vehicle_illegal_parking")
+    assert user_content[1]["image_url"]["url"] == "s3://mock/motor_overlay.png"

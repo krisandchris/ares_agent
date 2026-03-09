@@ -69,7 +69,7 @@ def test_mock_sam3_segment_endpoint_returns_fastapi_style_json(tmp_path: Path) -
     )
     sam_fixture = tmp_path / "sam.json"
     sam_fixture.write_text(
-        '{"mask_uri":"s3://mock/goods_mask.png","crop_image_uris":["s3://mock/goods_crop.png"],"overlay_image_uris":["s3://mock/goods_overlay.png"],"evidence_basis_summary":"goods block sidewalk"}',
+        '{"overlay_image":"s3://mock/goods_overlay.png","mask_labels":["goods","storefront_entrance","sidewalk"],"relation_hint":"goods placed outside storefront and block sidewalk","segmentation_status":"ok","mask_uri":"s3://mock/goods_mask.png","crop_image_uris":["s3://mock/goods_crop.png"],"overlay_image_uris":["s3://mock/goods_overlay.png"],"evidence_basis_summary":"goods block sidewalk"}',
         encoding="utf-8",
     )
     judge_fixture = tmp_path / "judge.json"
@@ -97,7 +97,6 @@ def test_mock_sam3_segment_endpoint_returns_fastapi_style_json(tmp_path: Path) -
     response = client.post(
         "/mock/sam3/segment",
         json={
-            "event_id": "evt_123",
             "image_uri": "s3://street/frame-002.jpg",
             "targets": ["goods_or_materials", "sidewalk", "passage_obstruction"],
         },
@@ -106,4 +105,6 @@ def test_mock_sam3_segment_endpoint_returns_fastapi_style_json(tmp_path: Path) -
     assert response.status_code == 200
     body = response.json()
     assert body["mask_uri"] == "s3://mock/goods_mask.png"
+    assert body["overlay_image"] == "s3://mock/goods_overlay.png"
+    assert body["mask_labels"] == ["goods", "storefront_entrance", "sidewalk"]
     assert body["overlay_image_uris"] == ["s3://mock/goods_overlay.png"]

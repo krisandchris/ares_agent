@@ -70,7 +70,7 @@ class PreliminaryClient(Protocol):
 class SegmentationClient(Protocol):
     """Client for evidence segmentation."""
 
-    def segment(self, event_id: str, targets: list[str]) -> SegmentationResult:
+    def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
         """Extract evidence material for the event."""
 
 
@@ -169,10 +169,10 @@ def _segmentation_step_factory(*, segmentation_client: SegmentationClient) -> St
     def run(step_input: StepInput) -> StepOutput:
         try:
             preliminary_content = step_input.get_step_content("preliminary") or {}
-            event_id = preliminary_content["event_id"]
+            image_uri = preliminary_content["frame_seed"]["image_uri"]
             preliminary = preliminary_content["preliminary"]
             segmentation_targets = preliminary.get("segmentation_targets") or preliminary["evidence_targets"]
-            segmentation = segmentation_client.segment(event_id, segmentation_targets)
+            segmentation = segmentation_client.segment(image_uri, segmentation_targets)
             return StepOutput(
                 content={
                     **preliminary_content,

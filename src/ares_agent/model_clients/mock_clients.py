@@ -42,8 +42,8 @@ class MockSegmentationClient:
     def segment_from_fixture(self) -> SegmentationResult:
         return SegmentationResult.model_validate(_load_json(self.fixture_path))
 
-    def segment(self, event_id: str, targets: list[str]) -> SegmentationResult:
-        del event_id, targets
+    def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
+        del image_uri, targets
         return self.segment_from_fixture()
 
 
@@ -70,11 +70,11 @@ class MockEvidenceJudgeClient:
     ) -> EvidenceJudgeResult:
         del (
             event_id,
-            category_code,
             overlay_image,
             mask_labels,
             relation_hint,
             segmentation_status,
+            category_code,
             evidence_basis_summary,
             preliminary,
         )
