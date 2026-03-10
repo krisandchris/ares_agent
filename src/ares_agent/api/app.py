@@ -71,6 +71,7 @@ def _build_prompt_builder_from_config(config: AppConfig) -> DefaultInspectionPro
         preliminary_system_template=config.prompts.preliminary.system,
         preliminary_user_template=config.prompts.preliminary.user,
         judge_system_template=config.prompts.judge.system,
+        judge_user_template=config.prompts.judge.user,
     )
 
 

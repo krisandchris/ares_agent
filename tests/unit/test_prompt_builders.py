@@ -18,7 +18,7 @@ def test_default_prompt_builder_builds_preliminary_messages_from_event_seed() ->
     assert messages[0]["role"] == "system"
     assert "preliminary inspection" in messages[0]["content"].lower()
     user_content = messages[1]["content"]
-    assert user_content[0]["text"].startswith("Analyze frame frame-010")
+    assert user_content[0]["text"] == "Analyze inspection image for violations."
     assert user_content[1]["image_url"]["url"] == "s3://street/frame-010.jpg"
 
 

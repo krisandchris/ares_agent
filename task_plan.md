@@ -28,6 +28,7 @@ Design a backend visual inspection agent for an urban street inspection robot do
 | Expand mock coverage across categories | complete | Added fixtures and tests for goods-blocking-road, unauthorized-wiring, and motor-vehicle-illegal-parking |
 | Freeze MVP scope and define backlog | complete | Prioritized P0/P1 backlog based on current mocked workflow skeleton |
 | Add local HTTP stub model interfaces | complete | Added local VLM/SAM3 stub endpoints and HTTP-style clients to simulate deployed services |
+| Align prompt templates to config-only definitions | complete | VLM-1 user prompt no longer injects metadata; VLM-2 system/user prompts are both YAML-defined with code-only variable substitution |
 
 ## Open Questions
 - Primary operating mode is confirmed as hybrid: synchronous preliminary judgment plus asynchronous evidence refinement and review task generation.

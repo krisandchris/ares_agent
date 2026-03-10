@@ -148,8 +148,12 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
         requester=fake_requester,
         prompt_builder=ConfigurableInspectionPromptBuilder(
             preliminary_system_template="You are a custom preliminary model.",
-            preliminary_user_template="Frame={frame_id}; Image={image_uri}",
+            preliminary_user_template="Analyze inspection image for violations.",
             judge_system_template="Custom judge system",
+            judge_user_template=(
+                "category_code={category_code}; mask_labels={mask_labels}; "
+                "relation_hint={relation_hint}; evidence_basis_summary={evidence_basis_summary}"
+            ),
         ),
     )
 
@@ -176,10 +180,12 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
     assert captured[0]["messages"][0]["content"] == "Custom judge system"
     user_content = captured[0]["messages"][1]["content"]
     judge_text = user_content[0]["text"]
-    assert "category_code=road_occupying_vendor" in judge_text
-    assert "mask_labels=stall, storefront_boundary, sidewalk_or_roadway" in judge_text
-    assert "relation_hint=stall overlaps sidewalk outside storefront boundary" in judge_text
-    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
+    assert (
+        judge_text
+        == "category_code=road_occupying_vendor; mask_labels=stall, storefront_boundary, sidewalk_or_roadway; "
+        "relation_hint=stall overlaps sidewalk outside storefront boundary; "
+        "evidence_basis_summary=stall overlaps sidewalk boundary"
+    )
     assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
     assert "event_id=" not in judge_text
     assert "segmentation_status=" not in judge_text

@@ -6,7 +6,6 @@ from dataclasses import dataclass
 from typing import Any
 
 from ares_agent.domain.events import EventSeed
-from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
 
 
 class PromptBuilder:
@@ -38,7 +37,7 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
                 "content": [
                     {
                         "type": "text",
-                        "text": f"Analyze frame {seed.frame_id} for inspection violations.",
+                        "text": "Analyze inspection image for violations.",
                     },
                     {"type": "image_url", "image_url": {"url": seed.image_uri}},
                 ],
@@ -79,6 +78,7 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     preliminary_system_template: str
     preliminary_user_template: str
     judge_system_template: str
+    judge_user_template: str
 
     def build_preliminary_messages(self, seed: EventSeed) -> list[dict[str, Any]]:
         return [
@@ -88,13 +88,7 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
                 "content": [
                     {
                         "type": "text",
-                        "text": self.preliminary_user_template.format(
-                            image_uri=seed.image_uri,
-                            frame_id=seed.frame_id,
-                            device_id=seed.device_id,
-                            task_id=seed.task_id,
-                            occur_time=seed.occur_time,
-                        ).strip(),
+                        "text": self.preliminary_user_template.strip(),
                     },
                     {"type": "image_url", "image_url": {"url": seed.image_uri}},
                 ],
@@ -110,13 +104,17 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
         relation_hint: str,
         evidence_basis_summary: str,
     ) -> list[dict[str, Any]]:
-        dynamic_user_text = (
-            f"category_code={category_code}\n"
-            f"mask_labels={', '.join(mask_labels)}\n"
-            f"relation_hint={relation_hint}\n"
-            f"evidence_basis_summary={evidence_basis_summary}"
-        )
-        content: list[dict[str, Any]] = [{"type": "text", "text": dynamic_user_text}]
+        content: list[dict[str, Any]] = [
+            {
+                "type": "text",
+                "text": self.judge_user_template.format(
+                    category_code=category_code,
+                    mask_labels=", ".join(mask_labels),
+                    relation_hint=relation_hint,
+                    evidence_basis_summary=evidence_basis_summary,
+                ).strip(),
+            }
+        ]
         if overlay_image:
             content.append({"type": "image_url", "image_url": {"url": overlay_image}})
         return [

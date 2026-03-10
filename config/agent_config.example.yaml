@@ -101,7 +101,7 @@ prompts:
 
       Never output markdown. Never output extra explanation outside JSON.
     user: |
-      Analyze frame {frame_id} for inspection violations.
+      Analyze this inspection image for violations and risks.
   judge:
     system: |
       You are the second-stage evidence-judgment model in a city-street visual inspection pipeline.
@@ -123,11 +123,11 @@ prompts:
 
       Do not rely on unrelated metadata. Do not invent new violation categories unless explicitly required by the input contract.
       Output must remain structured and evidence-grounded.
-
-# Note:
-# - VLM-1 user prompt is configured above.
-# - VLM-2 user prompt is generated dynamically in code from:
-#   category_code, mask_labels, relation_hint, evidence_basis_summary, overlay_image
+    user: |
+      category_code={category_code}
+      mask_labels={mask_labels}
+      relation_hint={relation_hint}
+      evidence_basis_summary={evidence_basis_summary}
 
 review:
   enable_manual_review: true

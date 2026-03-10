@@ -32,6 +32,8 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
                 "  judge:",
                 "    system: |",
                 "      You are a custom judge model.",
+                "    user: |",
+                "      category_code={category_code}; mask_labels={mask_labels}; relation_hint={relation_hint}; evidence_basis_summary={evidence_basis_summary}",
             ]
         ),
         encoding="utf-8",
@@ -42,13 +44,18 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
     assert "custom preliminary model" in config.prompts.preliminary.system
     assert "Frame={frame_id}" in config.prompts.preliminary.user
     assert "custom judge model" in config.prompts.judge.system
+    assert "category_code={category_code}" in config.prompts.judge.user
 
 
 def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() -> None:
     builder = ConfigurableInspectionPromptBuilder(
         preliminary_system_template="You are a custom preliminary model.",
-        preliminary_user_template="Frame={frame_id}; Image={image_uri}",
+        preliminary_user_template="Analyze inspection image for violations.",
         judge_system_template="You are a custom judge model.",
+        judge_user_template=(
+            "category_code={category_code}; mask_labels={mask_labels}; "
+            "relation_hint={relation_hint}; evidence_basis_summary={evidence_basis_summary}"
+        ),
     )
 
     messages = builder.build_judge_messages(
@@ -62,10 +69,12 @@ def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() 
     assert messages[0]["content"] == "You are a custom judge model."
     user_content = messages[1]["content"]
     user_text = user_content[0]["text"]
-    assert "category_code=road_occupying_vendor" in user_text
-    assert "mask_labels=stall, storefront_boundary, sidewalk_or_roadway" in user_text
-    assert "relation_hint=stall overlaps sidewalk outside storefront boundary" in user_text
-    assert "evidence_basis_summary=stall overlaps sidewalk boundary" in user_text
+    assert (
+        user_text
+        == "category_code=road_occupying_vendor; mask_labels=stall, storefront_boundary, sidewalk_or_roadway; "
+        "relation_hint=stall overlaps sidewalk outside storefront boundary; "
+        "evidence_basis_summary=stall overlaps sidewalk boundary"
+    )
     assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
     assert "event_id=" not in user_text
     assert "segmentation_status=" not in user_text

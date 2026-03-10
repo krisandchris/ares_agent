@@ -29,10 +29,12 @@ def test_build_prompt_builder_from_config_uses_yaml_templates(tmp_path: Path) ->
                 "    system: |",
                 "      PRELIM SYSTEM",
                 "    user: |",
-                "      PRELIM USER {frame_id}",
+                "      PRELIM USER",
                 "  judge:",
                 "    system: |",
                 "      JUDGE SYSTEM",
+                "    user: |",
+                "      JUDGE USER {category_code}",
             ]
         ),
         encoding="utf-8",
@@ -43,8 +45,9 @@ def test_build_prompt_builder_from_config_uses_yaml_templates(tmp_path: Path) ->
 
     assert isinstance(builder, ConfigurableInspectionPromptBuilder)
     assert builder.preliminary_system_template.strip() == "PRELIM SYSTEM"
-    assert builder.preliminary_user_template.strip() == "PRELIM USER {frame_id}"
+    assert builder.preliminary_user_template.strip() == "PRELIM USER"
     assert builder.judge_system_template.strip() == "JUDGE SYSTEM"
+    assert builder.judge_user_template.strip() == "JUDGE USER {category_code}"
 
 
 def test_build_model_clients_from_config_uses_http_clients_when_mode_is_http(tmp_path: Path) -> None:
@@ -70,10 +73,12 @@ def test_build_model_clients_from_config_uses_http_clients_when_mode_is_http(tmp
                 "    system: |",
                 "      PRELIM SYSTEM",
                 "    user: |",
-                "      PRELIM USER {frame_id}",
+                "      PRELIM USER",
                 "  judge:",
                 "    system: |",
                 "      JUDGE SYSTEM",
+                "    user: |",
+                "      JUDGE USER {category_code}",
                 "model_clients:",
                 "  mode: http",
                 "  preliminary:",
