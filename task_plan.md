@@ -34,6 +34,7 @@ Design a backend visual inspection agent for an urban street inspection robot do
 | Enforce configurable prompt builder in HTTP mode | complete | HTTP bootstrap now requires configured prompt templates and no longer falls back to DefaultInspectionPromptBuilder |
 | Stop after SAM3 segmentation failure | complete | Workflow now emits a failed-stage event and skips VLM-2 when `segmentation_status=failed` |
 | Enforce callback stage semantics | complete | Invalid `refined-without-preliminary` configs now fail validation; workflow honors `send_preliminary/send_refined` switches |
+| Implement callback retry/timeout/backoff | complete | HttpCallbackPlugin now retries retryable failures, applies backoff, and passes configured timeout into the default HTTP sender |
 
 ## Open Questions
 - Primary operating mode is confirmed as hybrid: synchronous preliminary judgment plus asynchronous evidence refinement and review task generation.
