@@ -54,6 +54,8 @@ Current runtime chain:
 uv sync
 ```
 
+This repository uses a `src/` layout. `pyrightconfig.json` is included so editors can resolve `ares_agent.*` imports against `src` and the local `.venv`.
+
 ## Run
 
 ```bash
