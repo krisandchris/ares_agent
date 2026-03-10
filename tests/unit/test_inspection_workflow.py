@@ -84,6 +84,24 @@ class FakeJudgeClient:
         )
 
 
+class FailingSegmentationClient:
+    def __init__(self, calls: list[str]) -> None:
+        self.calls = calls
+
+    def segment(self, event_id: str, targets: list[str]) -> SegmentationResult:
+        self.calls.append(f"segmentation_failed:{event_id}:{','.join(targets)}")
+        return SegmentationResult(
+            overlay_image=None,
+            mask_labels=[],
+            relation_hint="",
+            segmentation_status="failed",
+            mask_uri=None,
+            crop_image_uris=[],
+            overlay_image_uris=[],
+            evidence_basis_summary="segmentation produced no usable evidence",
+        )
+
+
 class FakeSinkPlugin:
     def __init__(self, calls: list[object]) -> None:
         self.calls = calls
@@ -149,3 +167,34 @@ def test_inspection_workflow_passes_same_event_id_into_refined_stage() -> None:
     assert isinstance(refined, RefinedEventFeedback)
     assert refined.event_id == callback_payloads[0].event_id
     assert output.content["event_id"] == refined.event_id
+
+
+def test_inspection_workflow_stops_before_judge_when_segmentation_failed() -> None:
+    order: list[str] = []
+    callback_payloads: list[object] = []
+    seed = EventSeed(
+        image_uri="s3://street/frame-001.jpg",
+        frame_id="frame-001",
+        device_id="dog-17",
+        task_id="patrol-sh-001",
+        occur_time="2026-03-09T10:00:00Z",
+    )
+    workflow = build_inspection_event_workflow(
+        preliminary_client=FakePreliminaryClient(order),
+        segmentation_client=FailingSegmentationClient(order),
+        evidence_judge_client=FakeJudgeClient(order),
+        sink_plugin=FakeSinkPlugin(callback_payloads),
+        runtime_config={"callback": {"plugin": "http_callback"}},
+    )
+
+    output = workflow.run(input=seed)
+
+    assert order == [
+        "preliminary:frame-001",
+        "segmentation_failed:s3://street/frame-001.jpg:stall,storefront_boundary,sidewalk_or_roadway",
+    ]
+    assert len(callback_payloads) == 1
+    assert isinstance(callback_payloads[0], PreliminaryEventFeedback)
+    assert output.content["stage"] == "failed"
+    assert output.content["error_type"] == "SegmentationFailed"
+    assert output.content["failed_step"] == "segmentation"

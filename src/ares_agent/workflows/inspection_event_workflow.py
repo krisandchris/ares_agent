@@ -198,6 +198,18 @@ def _evidence_judge_step_factory(
             event_id = segmentation_content["event_id"]
             preliminary = segmentation_content["preliminary"]
             segmentation = segmentation_content["segmentation"]
+            segmentation_status = segmentation.get("segmentation_status", "ok")
+            if segmentation_status == "failed":
+                return StepOutput(
+                    content={
+                        "event_id": event_id,
+                        "stage": "failed",
+                        "failed_step": "segmentation",
+                        "error_type": "SegmentationFailed",
+                        "error_message": segmentation["evidence_basis_summary"],
+                        "preliminary_feedback": segmentation_content["preliminary_feedback"],
+                    }
+                )
             final_category = preliminary["violation_category"]
             judgment = evidence_judge_client.judge(
                 event_id=event_id,
@@ -206,7 +218,7 @@ def _evidence_judge_step_factory(
                 or (segmentation.get("overlay_image_uris") or [None])[0],
                 mask_labels=segmentation.get("mask_labels") or [],
                 relation_hint=segmentation.get("relation_hint") or preliminary.get("relation_hint", ""),
-                segmentation_status=segmentation.get("segmentation_status", "ok"),
+                segmentation_status=segmentation_status,
                 evidence_basis_summary=segmentation["evidence_basis_summary"],
                 preliminary=PreliminaryResult.model_validate(preliminary),
             )
