@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from fastapi.testclient import TestClient
+import pytest
 
 from ares_agent.api.app import create_app
 from ares_agent.domain.events import EventSeed
@@ -8,6 +9,7 @@ from ares_agent.model_clients.http_clients import (
     Sam3FastApiClient,
     SglangVlmJudgeClient,
     SglangVlmPreliminaryClient,
+    _default_requester,
     _extract_chat_message_content,
 )
 
@@ -119,3 +121,33 @@ def test_extract_chat_message_content_supports_string_and_object_content() -> No
 
     assert isinstance(string_content, str)
     assert isinstance(object_content, dict)
+
+
+def test_default_requester_passes_timeout_to_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
+    observed: dict[str, object] = {}
+
+    class FakeResponse:
+        def __enter__(self) -> "FakeResponse":
+            return self
+
+        def __exit__(self, exc_type, exc, tb) -> None:
+            return None
+
+        def read(self) -> bytes:
+            return b'{"ok": true}'
+
+    def fake_urlopen(req, timeout):
+        observed["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr("ares_agent.model_clients.http_clients.request.urlopen", fake_urlopen)
+
+    result = _default_requester(
+        "https://model.example/v1/chat/completions",
+        {"Content-Type": "application/json"},
+        {"model": "inspection-vlm"},
+        timeout_ms=4200,
+    )
+
+    assert observed["timeout"] == 4.2
+    assert result == {"ok": True}

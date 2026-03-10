@@ -30,10 +30,16 @@ class ChatCompletionResponse(TypedDict):
     choices: list[ChatChoice]
 
 
-def _default_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+def _default_requester(
+    url: str,
+    headers: dict[str, str],
+    payload: dict[str, object],
+    *,
+    timeout_ms: int,
+) -> dict[str, object]:
     body = json.dumps(payload).encode("utf-8")
     req = request.Request(url=url, data=body, headers=headers, method="POST")
-    with request.urlopen(req) as response:  # noqa: S310
+    with request.urlopen(req, timeout=timeout_ms / 1000) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))
 
 
@@ -61,7 +67,14 @@ class SglangVlmPreliminaryClient:
         self.timeout_ms = timeout_ms
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.requester = requester or _default_requester
+        self.requester = requester or (
+            lambda url, headers, payload: _default_requester(
+                url,
+                headers,
+                payload,
+                timeout_ms=self.timeout_ms,
+            )
+        )
         self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
 
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
@@ -97,7 +110,14 @@ class SglangVlmJudgeClient:
         self.timeout_ms = timeout_ms
         self.temperature = temperature
         self.max_tokens = max_tokens
-        self.requester = requester or _default_requester
+        self.requester = requester or (
+            lambda url, headers, payload: _default_requester(
+                url,
+                headers,
+                payload,
+                timeout_ms=self.timeout_ms,
+            )
+        )
         self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
 
     def judge(
@@ -144,7 +164,14 @@ class Sam3FastApiClient:
     ) -> None:
         self.endpoint = endpoint
         self.timeout_ms = timeout_ms
-        self.requester = requester or _default_requester
+        self.requester = requester or (
+            lambda url, headers, payload: _default_requester(
+                url,
+                headers,
+                payload,
+                timeout_ms=self.timeout_ms,
+            )
+        )
 
     def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
         payload = {
