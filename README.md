@@ -15,7 +15,7 @@ Implemented today:
 - in-memory event result storage
 - event query route by `event_id`
 - success and failure path unit tests
-- configurable VLM prompt templates via YAML
+- YAML-defined VLM-1 / VLM-2 system and user prompt templates
 
 Not implemented yet:
 
@@ -39,7 +39,7 @@ src/ares_agent/
 ├── infra/         # Config and in-memory event store
 ├── model_clients/ # Mock clients and HTTP-style model clients
 ├── plugins/       # Callback adapters
-├── prompts/       # Prompt builders
+├── prompts/       # Prompt builders with config-template variable injection
 ├── services/      # Feedback payload builders
 └── workflows/     # Main inspection workflow
 ```
@@ -80,6 +80,28 @@ Expected behavior:
 - the workflow runs `VLM-1 -> SAM3 -> VLM-2 -> callback`
 - the response returns the refined event payload for the shared `event_id`
 - the latest event result can be queried by `event_id`
+
+## Prompt Configuration
+
+Prompt templates are defined in `config/agent_config.example.yaml`.
+
+- `prompts.preliminary.system`
+- `prompts.preliminary.user`
+- `prompts.judge.system`
+- `prompts.judge.user`
+
+The code path in `src/ares_agent/prompts/builders.py` only injects configured variables:
+
+- `VLM-1 user`
+  - currently treated as static template text
+  - the inspection image is attached separately as multimodal `image_url`
+- `VLM-2 user`
+  - supports:
+    - `{category_code}`
+    - `{mask_labels}`
+    - `{relation_hint}`
+    - `{evidence_basis_summary}`
+  - `overlay_image` is attached separately as multimodal `image_url`
 
 ## Query Latest Event
 

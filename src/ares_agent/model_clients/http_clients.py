@@ -7,7 +7,7 @@ from typing import Callable
 from urllib import request
 
 from ares_agent.domain.events import EventSeed
-from ares_agent.prompts.builders import DefaultInspectionPromptBuilder
+from ares_agent.prompts.builders import DefaultInspectionPromptBuilder, PromptBuilder
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
     PreliminaryResult,
@@ -37,7 +37,7 @@ class SglangVlmPreliminaryClient:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         requester: Requester | None = None,
-        prompt_builder: DefaultInspectionPromptBuilder | None = None,
+        prompt_builder: PromptBuilder | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name
@@ -73,7 +73,7 @@ class SglangVlmJudgeClient:
         temperature: float = 0.0,
         max_tokens: int | None = None,
         requester: Requester | None = None,
-        prompt_builder: DefaultInspectionPromptBuilder | None = None,
+        prompt_builder: PromptBuilder | None = None,
     ) -> None:
         self.endpoint = endpoint
         self.model_name = model_name

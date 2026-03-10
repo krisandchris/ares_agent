@@ -9,6 +9,7 @@
 - `VLM-1 -> SAM3 -> VLM-2 -> callback` mocked closed-loop demo
 - `mock/http` 两种模型客户端模式
 - 配置驱动的 prompt builder 与模型端点装配
+- `VLM-1 / VLM-2` 的 `system/user` prompt 已统一放入 YAML，代码仅做变量注入
 - in-memory `event_store`
 - 事件查询接口
 - 全量单测覆盖当前主链路
@@ -74,6 +75,25 @@
 - 把这版契约整理成正式文档
 - 明确哪些字段是必须、哪些字段允许为空
 - 确定 `segmentation_status=failed` 时是否完全跳过 `VLM-2`
+
+### 3.4 固化 prompt 模板接口
+
+当前 prompt 契约已经收敛为：
+
+- `prompts.preliminary.system`
+- `prompts.preliminary.user`
+- `prompts.judge.system`
+- `prompts.judge.user`
+
+仍建议补充：
+
+- 明确 `VLM-1 user` 允许使用的变量集合，当前默认不注入采集元数据
+- 明确 `VLM-2 user` 允许使用的变量集合，仅限：
+  - `category_code`
+  - `mask_labels`
+  - `relation_hint`
+  - `evidence_basis_summary`
+- 明确 `overlay_image` 和原图这类多模态输入始终通过 image content 传递，而不是模板变量
 
 ## 4. 真实联调待办
 
@@ -210,11 +230,13 @@
 
 - 默认 builder
 - 配置驱动 builder
+- 模板变量注入
 
 建议后续按阶段拆成：
 
 - `preliminary_builder`
 - `judge_builder`
+- `template_rendering`
 
 ## 8. 不建议现在优先做的事
 

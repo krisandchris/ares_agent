@@ -102,7 +102,21 @@ ares_agent/
   - `VLM-1` prompt
   - `VLM-2` prompt
 
-其中 `VLM-1` 偏配置驱动，`VLM-2` 偏基于 `SAM3` 结果图和分割语义做审证提示。
+当前约束是：
+
+- `VLM-1` 的 `system/user` 都在 YAML 中定义
+- `VLM-2` 的 `system/user` 也都在 YAML 中定义
+- 代码只负责把变量注入到模板中，并附加多模态图片输入
+
+其中：
+
+- `VLM-1` 的文本 prompt 当前不再注入采集元数据
+- `VLM-2` 的文本 prompt 注入以下字段：
+  - `category_code`
+  - `mask_labels`
+  - `relation_hint`
+  - `evidence_basis_summary`
+- `VLM-2` 的 `overlay_image` 作为独立图像输入传递，不混入文本模板
 
 ### 3.5 `src/ares_agent/plugins`
 
@@ -166,6 +180,8 @@ ares_agent/
 - 先分析环境，再给结论
 - 输出标准化 JSON
 - 为 `SAM3` 提供 `segmentation_targets`
+- `system/user` prompt 都由配置文件提供
+- 原图通过多模态 `image_url` 单独传入
 
 ### 5.2 SAM3
 
@@ -178,11 +194,13 @@ ares_agent/
 
 - 以 `SAM3 overlay_image` 为主视觉输入
 - 不再依赖原图链接继续往下传递
-- prompt 重点字段为：
+- `system/user` prompt 都由配置文件提供
+- 文本 prompt 注入字段为：
   - `category_code`
   - `mask_labels`
   - `relation_hint`
   - `evidence_basis_summary`
+- `overlay_image` 作为多模态图像输入单独传递
 
 ## 6. 当前缺口
 
@@ -199,7 +217,7 @@ ares_agent/
 
 下一步如果走向真实系统，建议优先顺序：
 
-1. 收敛 `PreliminaryResult` 为正式 schema
+1. 固化 prompt 配置与真实联调文档
 2. 切换 mock / real client 模式
 3. 增加持久化 event store
 4. 引入真实对象存储

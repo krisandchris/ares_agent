@@ -25,7 +25,11 @@ from ares_agent.model_clients.mock_clients import (
     MockSegmentationClient,
 )
 from ares_agent.plugins.http_callback import HttpCallbackPlugin, Sender
-from ares_agent.prompts.builders import ConfigurableInspectionPromptBuilder, DefaultInspectionPromptBuilder
+from ares_agent.prompts.builders import (
+    ConfigurableInspectionPromptBuilder,
+    DefaultInspectionPromptBuilder,
+    PromptBuilder,
+)
 from ares_agent.workflows.inspection_event_workflow import build_inspection_event_workflow
 
 
@@ -64,7 +68,7 @@ def _build_workflow_from_config(
     )
 
 
-def _build_prompt_builder_from_config(config: AppConfig) -> DefaultInspectionPromptBuilder:
+def _build_prompt_builder_from_config(config: AppConfig) -> PromptBuilder:
     if config.prompts is None:
         return DefaultInspectionPromptBuilder()
     return ConfigurableInspectionPromptBuilder(
