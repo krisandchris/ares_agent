@@ -31,6 +31,7 @@ Design a backend visual inspection agent for an urban street inspection robot do
 | Align prompt templates to config-only definitions | complete | VLM-1 user prompt no longer injects metadata; VLM-2 system/user prompts are both YAML-defined with code-only variable substitution |
 | Sync docs with prompt-template contract | complete | README and structure docs now describe YAML-owned VLM-1/VLM-2 prompts and code-side variable injection only |
 | Fix HTTP client response typing | complete | VLM chat-completion parsing now uses a typed helper instead of indexing raw `object` values, removing editor type errors on `response[\"choices\"]...` |
+| Enforce configurable prompt builder in HTTP mode | complete | HTTP bootstrap now requires configured prompt templates and no longer falls back to DefaultInspectionPromptBuilder |
 
 ## Open Questions
 - Primary operating mode is confirmed as hybrid: synchronous preliminary judgment plus asynchronous evidence refinement and review task generation.
