@@ -2,6 +2,7 @@ from ares_agent.domain.events import EventSeed
 from ares_agent.model_clients.http_clients import SglangVlmJudgeClient, SglangVlmPreliminaryClient
 from ares_agent.prompts.builders import ConfigurableInspectionPromptBuilder, DefaultInspectionPromptBuilder
 from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
+import pytest
 
 
 def test_preliminary_http_client_uses_prompt_builder_messages() -> None:
@@ -189,3 +190,19 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
     assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
     assert "event_id=" not in judge_text
     assert "segmentation_status=" not in judge_text
+
+
+def test_preliminary_http_client_requires_explicit_prompt_builder() -> None:
+    with pytest.raises(ValueError, match="prompt_builder"):
+        SglangVlmPreliminaryClient(
+            endpoint="/mock/vlm/preliminary",
+            model_name="inspection-vlm",
+        )
+
+
+def test_judge_http_client_requires_explicit_prompt_builder() -> None:
+    with pytest.raises(ValueError, match="prompt_builder"):
+        SglangVlmJudgeClient(
+            endpoint="/mock/vlm/judge",
+            model_name="inspection-vlm",
+        )

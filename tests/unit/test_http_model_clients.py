@@ -12,6 +12,7 @@ from ares_agent.model_clients.http_clients import (
     _default_requester,
     _extract_chat_message_content,
 )
+from ares_agent.prompts.builders import DefaultInspectionPromptBuilder
 
 
 def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
@@ -56,6 +57,7 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
         endpoint="/mock/vlm/preliminary",
         model_name="inspection-vlm",
         requester=local_requester,
+        prompt_builder=DefaultInspectionPromptBuilder(),
     )
     sam3_client = Sam3FastApiClient(
         endpoint="/mock/sam3/segment",
@@ -65,6 +67,7 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
         endpoint="/mock/vlm/judge",
         model_name="inspection-vlm",
         requester=local_requester,
+        prompt_builder=DefaultInspectionPromptBuilder(),
     )
 
     prelim = prelim_client.analyze(

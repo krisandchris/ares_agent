@@ -10,6 +10,7 @@ from ares_agent.model_clients.http_clients import (
     SglangVlmPreliminaryClient,
 )
 from ares_agent.plugins.http_callback import HttpCallbackPlugin
+from ares_agent.prompts.builders import DefaultInspectionPromptBuilder
 from ares_agent.workflows.inspection_event_workflow import build_inspection_event_workflow
 
 
@@ -61,6 +62,7 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
             endpoint="/mock/vlm/preliminary",
             model_name="inspection-vlm",
             requester=local_requester,
+            prompt_builder=DefaultInspectionPromptBuilder(),
         ),
         segmentation_client=Sam3FastApiClient(
             endpoint="/mock/sam3/segment",
@@ -70,6 +72,7 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
             endpoint="/mock/vlm/judge",
             model_name="inspection-vlm",
             requester=local_requester,
+            prompt_builder=DefaultInspectionPromptBuilder(),
         ),
         sink_plugin=HttpCallbackPlugin(
             endpoint="https://backend.example/api/v1/events/callback",

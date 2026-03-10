@@ -36,6 +36,7 @@ Design a backend visual inspection agent for an urban street inspection robot do
 | Enforce callback stage semantics | complete | Invalid `refined-without-preliminary` configs now fail validation; workflow honors `send_preliminary/send_refined` switches |
 | Implement callback retry/timeout/backoff | complete | HttpCallbackPlugin now retries retryable failures, applies backoff, and passes configured timeout into the default HTTP sender |
 | Propagate timeout into HTTP model clients | complete | Default VLM/SAM3 requesters now pass `timeout_ms` into urllib rather than silently ignoring it |
+| Remove implicit HTTP prompt fallback | complete | Direct HTTP VLM client construction now requires an explicit prompt builder instead of silently creating a default one |
 
 ## Open Questions
 - Primary operating mode is confirmed as hybrid: synchronous preliminary judgment plus asynchronous evidence refinement and review task generation.

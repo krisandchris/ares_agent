@@ -7,7 +7,7 @@ from typing import Any, Callable, TypedDict, cast
 from urllib import request
 
 from ares_agent.domain.events import EventSeed
-from ares_agent.prompts.builders import DefaultInspectionPromptBuilder, PromptBuilder
+from ares_agent.prompts.builders import PromptBuilder
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
     PreliminaryResult,
@@ -67,6 +67,8 @@ class SglangVlmPreliminaryClient:
         self.timeout_ms = timeout_ms
         self.temperature = temperature
         self.max_tokens = max_tokens
+        if prompt_builder is None:
+            raise ValueError("SglangVlmPreliminaryClient requires an explicit prompt_builder")
         self.requester = requester or (
             lambda url, headers, payload: _default_requester(
                 url,
@@ -75,7 +77,7 @@ class SglangVlmPreliminaryClient:
                 timeout_ms=self.timeout_ms,
             )
         )
-        self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
+        self.prompt_builder = prompt_builder
 
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
         payload = {
@@ -110,6 +112,8 @@ class SglangVlmJudgeClient:
         self.timeout_ms = timeout_ms
         self.temperature = temperature
         self.max_tokens = max_tokens
+        if prompt_builder is None:
+            raise ValueError("SglangVlmJudgeClient requires an explicit prompt_builder")
         self.requester = requester or (
             lambda url, headers, payload: _default_requester(
                 url,
@@ -118,7 +122,7 @@ class SglangVlmJudgeClient:
                 timeout_ms=self.timeout_ms,
             )
         )
-        self.prompt_builder = prompt_builder or DefaultInspectionPromptBuilder()
+        self.prompt_builder = prompt_builder
 
     def judge(
         self,
