@@ -1,0 +1,161 @@
+direction: right
+
+EventSeed: {
+  shape: class
+  image_uri: str
+  frame_id: str
+  device_id: str
+  task_id: str
+  occur_time: str
+}
+
+PreliminaryResult: {
+  shape: class
+  environment_analysis: str
+  scene_elements: "list[str]"
+  evidence_reasoning: str
+  segmentation_targets: "list[str]"
+  relation_hint: str
+  violation_category: str
+  open_risk_type: str
+  confidence: float
+}
+
+SegmentationResult: {
+  shape: class
+  overlay_image: "str?"
+  mask_labels: "list[str]"
+  relation_hint: str
+  segmentation_status: str
+  mask_uri: "str?"
+  crop_image_uris: "list[str]"
+  overlay_image_uris: "list[str]"
+  evidence_basis_summary: str
+}
+
+EvidenceJudgeResult: {
+  shape: class
+  final_category: str
+  final_confidence: float
+  evidence_basis_match: bool
+  violation_relation_confirmed: bool
+  exception_excluded: bool
+  archive_readiness: bool
+  review_required: bool
+  rejection_reason: "str?"
+  violation_relation_summary: "str?"
+}
+
+PreliminaryEventFeedback: {
+  shape: class
+  event_id: str
+  frame_id: str
+  stage: preliminary
+  violation_category: str
+  open_risk_type: str
+  confidence: float
+  async_enqueued: bool
+}
+
+RefinedEventFeedback: {
+  shape: class
+  event_id: str
+  frame_id: str
+  stage: refined
+  final_category: str
+  final_confidence: float
+  archive_readiness: bool
+  review_required: bool
+  event_version: int
+}
+
+EvidencePackage: {
+  shape: class
+  event_id: str
+  source_image_uri: "str?"
+  crop_image_uris: "list[str]"
+  overlay_image_uris: "list[str]"
+  mask_uri: "str?"
+  evidence_basis_summary: "str?"
+  archive_readiness: bool
+  rejection_reason: "str?"
+}
+
+InMemoryEventStore: {
+  shape: class
+  save(event_id, payload)
+  get(event_id)
+}
+
+InspectionEventWorkflow: {
+  shape: class
+  preliminary_client
+  segmentation_client
+  evidence_judge_client
+  sink_plugin
+}
+
+SglangVlmPreliminaryClient: {
+  shape: class
+  endpoint: str
+  model_name: str
+  timeout_ms: int
+  temperature: float
+  max_tokens: "int?"
+  analyze(seed)
+}
+
+Sam3FastApiClient: {
+  shape: class
+  endpoint: str
+  timeout_ms: int
+  segment(image_uri, targets)
+}
+
+SglangVlmJudgeClient: {
+  shape: class
+  endpoint: str
+  model_name: str
+  timeout_ms: int
+  temperature: float
+  max_tokens: "int?"
+  judge(category_code, overlay_image, mask_labels, relation_hint, evidence_basis_summary)
+}
+
+HttpCallbackPlugin: {
+  shape: class
+  endpoint: str
+  auth_token: str?
+  timeout_ms: int
+  max_attempts: int
+  backoff_ms: int
+  send(event_payload, runtime_config)
+}
+
+PromptBuilder: {
+  shape: class
+  build_preliminary_messages(seed)
+  build_judge_messages(category_code, overlay_image, mask_labels, relation_hint, evidence_basis_summary)
+}
+
+EventSeed -> InspectionEventWorkflow: "input"
+InspectionEventWorkflow -> PreliminaryResult: "step 1 output"
+InspectionEventWorkflow -> SegmentationResult: "step 2 output"
+InspectionEventWorkflow -> EvidenceJudgeResult: "step 3 output"
+InspectionEventWorkflow -> PreliminaryEventFeedback: "callback payload"
+InspectionEventWorkflow -> RefinedEventFeedback: "callback payload"
+InspectionEventWorkflow -> EvidencePackage: "archival payload"
+InspectionEventWorkflow -> InMemoryEventStore: "persist latest result"
+
+SglangVlmPreliminaryClient -> PreliminaryResult
+Sam3FastApiClient -> SegmentationResult
+SglangVlmJudgeClient -> EvidenceJudgeResult
+HttpCallbackPlugin -> PreliminaryEventFeedback
+HttpCallbackPlugin -> RefinedEventFeedback
+
+SglangVlmPreliminaryClient -> PromptBuilder: "use"
+SglangVlmJudgeClient -> PromptBuilder: "use"
+InspectionEventWorkflow -> SglangVlmPreliminaryClient: "compose"
+InspectionEventWorkflow -> Sam3FastApiClient: "compose"
+InspectionEventWorkflow -> SglangVlmJudgeClient: "compose"
+InspectionEventWorkflow -> HttpCallbackPlugin: "compose"

@@ -1,0 +1,37 @@
+direction: down
+
+request: "POST /v1/inspection-items\nimage_uri + metadata"
+event_seed: "EventSeed"
+workflow: "InspectionEventWorkflow"
+vlm1: "VLM-1\npreliminary analysis"
+prelim_result: "PreliminaryResult\nenvironment_analysis\nscene_elements\nevidence_reasoning\nsegmentation_targets\nrelation_hint\nviolation_category\nopen_risk_type\nconfidence"
+prelim_callback: "preliminary_event_feedback"
+sam3: "SAM3\nsegment(image_uri, targets)"
+segmentation_result: "SegmentationResult\noverlay_image\nmask_labels\nrelation_hint\nsegmentation_status\nevidence_basis_summary"
+vlm2: "VLM-2 judge\nconsume overlay_image + segmentation semantics"
+judge_result: "EvidenceJudgeResult"
+evidence_package: "EvidencePackage"
+refined_callback: "refined_event_feedback"
+event_store: "InMemoryEventStore"
+query_api: "GET /v1/events/{event_id}"
+failure: "failed event payload"
+
+request -> event_seed -> workflow
+workflow -> vlm1 -> prelim_result
+prelim_result -> prelim_callback
+prelim_callback -> event_store
+
+prelim_result -> sam3 -> segmentation_result
+segmentation_result -> vlm2 -> judge_result
+judge_result -> evidence_package
+judge_result -> refined_callback
+refined_callback -> event_store
+evidence_package -> event_store
+
+event_store -> query_api
+
+workflow -> failure: "validation / callback / segmentation failure"
+failure -> event_store
+
+note_vlm2: "VLM-2 prompt fields:\ncategory_code\nmask_labels\nrelation_hint\nevidence_basis_summary\n+ overlay_image as visual input"
+segmentation_result -> note_vlm2
