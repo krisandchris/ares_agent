@@ -44,6 +44,19 @@ src/ares_agent/
 └── workflows/     # Main inspection workflow
 ```
 
+```text
+tests/unit/
+├── api/           # FastAPI app, bootstrap, schemas, stub endpoints
+├── domain/        # Domain event/id helpers
+├── infra/         # Config and event store
+├── integration/   # HTTP roundtrip tests across modules
+├── model_clients/ # VLM/SAM3/mock client behavior, including VLM-1 focused tests
+├── plugins/       # Callback plugin behavior
+├── prompts/       # Prompt builder and template rendering
+├── services/      # Feedback payload builders
+└── workflows/     # Workflow orchestration behavior
+```
+
 Current runtime chain:
 
 `FastAPI -> VLM-1 -> SAM3 -> VLM-2 -> callback -> event_store`

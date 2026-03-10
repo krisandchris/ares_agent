@@ -37,6 +37,7 @@ Design a backend visual inspection agent for an urban street inspection robot do
 | Implement callback retry/timeout/backoff | complete | HttpCallbackPlugin now retries retryable failures, applies backoff, and passes configured timeout into the default HTTP sender |
 | Propagate timeout into HTTP model clients | complete | Default VLM/SAM3 requesters now pass `timeout_ms` into urllib rather than silently ignoring it |
 | Remove implicit HTTP prompt fallback | complete | Direct HTTP VLM client construction now requires an explicit prompt builder instead of silently creating a default one |
+| Add VLM-1 focused tests and reorganize test tree | complete | Added dedicated VLM-1 service tests and reorganized `tests/unit` by module responsibility for readability |
 
 ## Open Questions
 - Primary operating mode is confirmed as hybrid: synchronous preliminary judgment plus asynchronous evidence refinement and review task generation.
