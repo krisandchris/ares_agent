@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import json
-from typing import Callable
+from typing import Any, Callable, TypedDict, cast
 from urllib import request
 
 from ares_agent.domain.events import EventSeed
@@ -18,11 +18,28 @@ from ares_agent.workflows.inspection_event_workflow import (
 Requester = Callable[[str, dict[str, str], dict[str, object]], dict[str, object]]
 
 
+class ChatMessage(TypedDict):
+    content: str | dict[str, Any]
+
+
+class ChatChoice(TypedDict):
+    message: ChatMessage
+
+
+class ChatCompletionResponse(TypedDict):
+    choices: list[ChatChoice]
+
+
 def _default_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
     body = json.dumps(payload).encode("utf-8")
     req = request.Request(url=url, data=body, headers=headers, method="POST")
     with request.urlopen(req) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))
+
+
+def _extract_chat_message_content(response: dict[str, object]) -> str | dict[str, Any]:
+    typed_response = cast(ChatCompletionResponse, response)
+    return typed_response["choices"][0]["message"]["content"]
 
 
 class SglangVlmPreliminaryClient:
@@ -56,7 +73,7 @@ class SglangVlmPreliminaryClient:
         if self.max_tokens is not None:
             payload["max_tokens"] = self.max_tokens
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)
-        content = response["choices"][0]["message"]["content"]
+        content = _extract_chat_message_content(response)
         data = json.loads(content) if isinstance(content, str) else content
         return PreliminaryResult.model_validate(data)
 
@@ -110,7 +127,7 @@ class SglangVlmJudgeClient:
         if self.max_tokens is not None:
             payload["max_tokens"] = self.max_tokens
         response = self.requester(self.endpoint, {"Content-Type": "application/json"}, payload)
-        content = response["choices"][0]["message"]["content"]
+        content = _extract_chat_message_content(response)
         data = json.loads(content) if isinstance(content, str) else content
         return EvidenceJudgeResult.model_validate(data)
 

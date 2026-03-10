@@ -8,6 +8,7 @@ from ares_agent.model_clients.http_clients import (
     Sam3FastApiClient,
     SglangVlmJudgeClient,
     SglangVlmPreliminaryClient,
+    _extract_chat_message_content,
 )
 
 
@@ -87,3 +88,34 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
     assert sam.mask_uri == "s3://mock/wiring_mask.png"
     assert sam.overlay_image == "s3://mock/wiring_overlay.png"
     assert judge.final_category == "unauthorized_electrical_wiring"
+
+
+def test_extract_chat_message_content_supports_string_and_object_content() -> None:
+    string_content = _extract_chat_message_content(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": '{"violation_category":"none","open_risk_type":"","confidence":0.1,"environment_analysis":"clear","scene_elements":[],"evidence_reasoning":"none","segmentation_targets":[],"relation_hint":""}'
+                    }
+                }
+            ]
+        }
+    )
+    object_content = _extract_chat_message_content(
+        {
+            "choices": [
+                {
+                    "message": {
+                        "content": {
+                            "final_category": "goods_blocking_road",
+                            "final_confidence": 0.9,
+                        }
+                    }
+                }
+            ]
+        }
+    )
+
+    assert isinstance(string_content, str)
+    assert isinstance(object_content, dict)
