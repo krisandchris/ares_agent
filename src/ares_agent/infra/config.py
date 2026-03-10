@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, HttpUrl
+from pydantic import BaseModel, HttpUrl, model_validator
 
 
 class AgentSettings(BaseModel):
@@ -32,6 +32,12 @@ class CallbackSettings(BaseModel):
     send_preliminary: bool = True
     send_refined: bool = True
     retry: RetrySettings = RetrySettings()
+
+    @model_validator(mode="after")
+    def validate_stage_flags(self) -> "CallbackSettings":
+        if self.send_refined and not self.send_preliminary:
+            raise ValueError("send_refined requires send_preliminary")
+        return self
 
 
 class ReviewSettings(BaseModel):

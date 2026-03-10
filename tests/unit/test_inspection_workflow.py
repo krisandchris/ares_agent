@@ -198,3 +198,50 @@ def test_inspection_workflow_stops_before_judge_when_segmentation_failed() -> No
     assert output.content["stage"] == "failed"
     assert output.content["error_type"] == "SegmentationFailed"
     assert output.content["failed_step"] == "segmentation"
+
+
+def test_inspection_workflow_can_skip_refined_callback_via_runtime_config() -> None:
+    callback_payloads: list[object] = []
+    seed = EventSeed(
+        image_uri="s3://street/frame-001.jpg",
+        frame_id="frame-001",
+        device_id="dog-17",
+        task_id="patrol-sh-001",
+        occur_time="2026-03-09T10:00:00Z",
+    )
+    workflow = build_inspection_event_workflow(
+        preliminary_client=FakePreliminaryClient([]),
+        segmentation_client=FakeSegmentationClient([]),
+        evidence_judge_client=FakeJudgeClient([]),
+        sink_plugin=FakeSinkPlugin(callback_payloads),
+        runtime_config={"callback": {"send_preliminary": True, "send_refined": False}},
+    )
+
+    output = workflow.run(input=seed)
+
+    assert output.content["stage"] == "refined"
+    assert len(callback_payloads) == 1
+    assert isinstance(callback_payloads[0], PreliminaryEventFeedback)
+
+
+def test_inspection_workflow_can_skip_all_callbacks_via_runtime_config() -> None:
+    callback_payloads: list[object] = []
+    seed = EventSeed(
+        image_uri="s3://street/frame-001.jpg",
+        frame_id="frame-001",
+        device_id="dog-17",
+        task_id="patrol-sh-001",
+        occur_time="2026-03-09T10:00:00Z",
+    )
+    workflow = build_inspection_event_workflow(
+        preliminary_client=FakePreliminaryClient([]),
+        segmentation_client=FakeSegmentationClient([]),
+        evidence_judge_client=FakeJudgeClient([]),
+        sink_plugin=FakeSinkPlugin(callback_payloads),
+        runtime_config={"callback": {"send_preliminary": False, "send_refined": False}},
+    )
+
+    output = workflow.run(input=seed)
+
+    assert output.content["stage"] == "refined"
+    assert callback_payloads == []

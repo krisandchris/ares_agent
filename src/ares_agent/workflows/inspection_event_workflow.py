@@ -131,6 +131,18 @@ def _ensure_callback_success(stage_name: str, callback_result: object) -> None:
     )
 
 
+def _should_send_callback(runtime_config: object, stage_name: str) -> bool:
+    callback_config = runtime_config if isinstance(runtime_config, dict) else {}
+    callback_config = callback_config.get("callback", {}) if isinstance(callback_config, dict) else {}
+    if not isinstance(callback_config, dict):
+        return True
+    if stage_name == "preliminary":
+        return bool(callback_config.get("send_preliminary", True))
+    if stage_name == "refined":
+        return bool(callback_config.get("send_refined", True))
+    return True
+
+
 def _preliminary_step_factory(
     *,
     preliminary_client: PreliminaryClient,
@@ -150,8 +162,9 @@ def _preliminary_step_factory(
                 confidence=preliminary.confidence,
                 async_enqueued=True,
             )
-            callback_result = sink_plugin.send(feedback, runtime_config)
-            _ensure_callback_success("preliminary", callback_result)
+            if _should_send_callback(runtime_config, "preliminary"):
+                callback_result = sink_plugin.send(feedback, runtime_config)
+                _ensure_callback_success("preliminary", callback_result)
             return StepOutput(
                 content={
                     "event_id": event_id,
@@ -231,8 +244,9 @@ def _evidence_judge_step_factory(
                 review_required=judgment.review_required,
                 event_version=2,
             )
-            callback_result = sink_plugin.send(refined_feedback, runtime_config)
-            _ensure_callback_success("refined", callback_result)
+            if _should_send_callback(runtime_config, "refined"):
+                callback_result = sink_plugin.send(refined_feedback, runtime_config)
+                _ensure_callback_success("refined", callback_result)
             evidence_package = EvidencePackage(
                 event_id=event_id,
                 crop_image_uris=segmentation["crop_image_uris"],

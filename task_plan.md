@@ -33,6 +33,7 @@ Design a backend visual inspection agent for an urban street inspection robot do
 | Fix HTTP client response typing | complete | VLM chat-completion parsing now uses a typed helper instead of indexing raw `object` values, removing editor type errors on `response[\"choices\"]...` |
 | Enforce configurable prompt builder in HTTP mode | complete | HTTP bootstrap now requires configured prompt templates and no longer falls back to DefaultInspectionPromptBuilder |
 | Stop after SAM3 segmentation failure | complete | Workflow now emits a failed-stage event and skips VLM-2 when `segmentation_status=failed` |
+| Enforce callback stage semantics | complete | Invalid `refined-without-preliminary` configs now fail validation; workflow honors `send_preliminary/send_refined` switches |
 
 ## Open Questions
 - Primary operating mode is confirmed as hybrid: synchronous preliminary judgment plus asynchronous evidence refinement and review task generation.

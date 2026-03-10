@@ -1,5 +1,7 @@
 from pathlib import Path
 
+import pytest
+
 from ares_agent.infra.config import load_config
 
 
@@ -45,3 +47,32 @@ def test_load_config_reads_callback_and_review_settings(tmp_path: Path) -> None:
     assert config.mock_clients.segmentation_fixture == segmentation_fixture.resolve()
     assert config.mock_clients.evidence_judge_fixture == judge_fixture.resolve()
     assert config.review.enable_manual_review is True
+
+
+def test_load_config_rejects_refined_without_preliminary_callback(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    segmentation_fixture = tmp_path / "sam.json"
+    segmentation_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "  send_preliminary: false",
+                "  send_refined: true",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {segmentation_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="send_refined requires send_preliminary"):
+        load_config(config_path)
