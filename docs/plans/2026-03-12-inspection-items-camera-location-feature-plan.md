@@ -454,7 +454,7 @@ scene_policies:
 新的提示词方案应满足：
 
 1. 全局巡检定义仍由 `system prompt` 主导
-2. `camera_id + location` 对应的场景策略应注入到 `system prompt`
+2. `camera_id + location` 对应的场景策略应在后端先解析，再将抽象语义注入到 `system prompt`
 3. `user prompt` 仅承担“触发本次图像分析”的作用
 4. 不同场景组合应能生成不同的最终 `system prompt`
 
@@ -614,12 +614,9 @@ Analyze this inspection image under the configured scene policy and output the r
 
 采用这种结构后，`VLM-1` 在处理图片前就能通过 `system prompt` 明确知道：
 
-- 当前图像来自哪一个朝向相机
-- 当前片区是什么
-- 当前组合下允许判断哪些类别
-- 哪些类别应禁用或降权
-- 哪些类别要优先检查
-- 当前片区有哪些位置语义约束
+- 当前场景的抽象语义是什么
+- 当前要优先检查哪些类别
+- 当前如何处理标准类目之外的开放通用风险
 
 这样第 7 节策略就不再只是后端内部规则，而会真正成为模型推理条件的一部分。
 

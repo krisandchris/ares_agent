@@ -104,18 +104,29 @@ Expected behavior:
 
 Prompt templates are defined in `config/agent_config.example.yaml`.
 
-- `prompts.preliminary.system`
+- `prompts.preliminary.role_block`
+- `prompts.preliminary.global_policy_block`
+- `prompts.preliminary.scene_activation_block_template`
+- `prompts.preliminary.reasoning_block`
+- `prompts.preliminary.output_contract_block`
 - `prompts.preliminary.user`
 - `prompts.judge.system`
 - `prompts.judge.user`
 
-The code path in `src/ares_agent/prompts/builders.py` only injects configured variables:
+The code path in `src/ares_agent/prompts/builders.py` currently works as follows:
 
-- `VLM-1 user`
-  - currently treated as static template text
-  - the inspection image is attached separately as multimodal `image_url`
-- `VLM-2 user`
-  - supports:
+- `VLM-1`
+  - `camera_id + location` are used only by the backend scene-policy resolver
+  - the model does not receive those raw control fields directly
+  - the final preliminary `system prompt` injects:
+    - `scene_hint`
+    - `priority_categories`
+    - `open_risk_guidance`
+  - `user prompt` is kept lightweight
+  - the image is attached separately as multimodal `image_url`
+
+- `VLM-2`
+  - `user` supports:
     - `{category_code}`
     - `{mask_labels}`
     - `{relation_hint}`

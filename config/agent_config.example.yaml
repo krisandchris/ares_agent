@@ -168,19 +168,14 @@ prompts:
       - large_debris_on_road
       - sanitation_emergency
     scene_activation_block_template: |
-      Current scene activation policy:
-      - camera_id: {camera_id}
-      - location: {location}
+      Current scene focus:
       - scene_hint: {scene_hint}
-      - enabled_categories: {enabled_categories}
-      - disabled_categories: {disabled_categories}
       - priority_categories: {priority_categories}
-      - location_constraints: {location_constraints}
+      - open_risk_guidance: {open_risk_guidance}
 
       Use rules:
-      - prioritize enabled_categories
       - prioritize priority_categories first
-      - do not output disabled_categories as standard categories unless they should be treated as open_risk
+      - if visible evidence strongly suggests a risk outside the priority standard categories, follow open_risk_guidance
     reasoning_block: |
       Always analyze the full environment before deciding the violation category.
       Do not judge from a single object alone. Use spatial relationships between objects and environment.
