@@ -7,7 +7,7 @@ from typing import Any, Callable, TypedDict, cast
 from urllib import request
 
 from ares_agent.domain.events import EventSeed
-from ares_agent.prompts.builders import PromptBuilder
+from ares_agent.prompts.builders import PromptBuilder, PromptMessage
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
     PreliminaryResult,
@@ -15,7 +15,22 @@ from ares_agent.workflows.inspection_event_workflow import (
 )
 
 
-Requester = Callable[[str, dict[str, str], dict[str, object]], dict[str, object]]
+class PreliminaryRequestPayload(TypedDict, total=False):
+    model: str
+    messages: list[PromptMessage]
+    temperature: float
+    max_tokens: int
+
+
+class Sam3RequestPayload(TypedDict):
+    image_uri: str
+    targets: list[str]
+
+
+Requester = Callable[
+    [str, dict[str, str], PreliminaryRequestPayload | Sam3RequestPayload],
+    dict[str, object],
+]
 
 
 class ChatMessage(TypedDict):
@@ -33,7 +48,7 @@ class ChatCompletionResponse(TypedDict):
 def _default_requester(
     url: str,
     headers: dict[str, str],
-    payload: dict[str, object],
+    payload: PreliminaryRequestPayload | Sam3RequestPayload,
     *,
     timeout_ms: int,
 ) -> dict[str, object]:
@@ -80,7 +95,7 @@ class SglangVlmPreliminaryClient:
         self.prompt_builder = prompt_builder
 
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
-        payload = {
+        payload: PreliminaryRequestPayload = {
             "model": self.model_name,
             "messages": self.prompt_builder.build_preliminary_messages(seed),
             "temperature": self.temperature,
@@ -137,7 +152,7 @@ class SglangVlmJudgeClient:
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
         del event_id, segmentation_status, preliminary
-        payload = {
+        payload: PreliminaryRequestPayload = {
             "model": self.model_name,
             "messages": self.prompt_builder.build_judge_messages(
                 category_code=category_code,
@@ -178,7 +193,7 @@ class Sam3FastApiClient:
         )
 
     def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
-        payload = {
+        payload: Sam3RequestPayload = {
             "image_uri": image_uri,
             "targets": targets,
         }
