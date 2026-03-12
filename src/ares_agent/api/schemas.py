@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from typing import Any
-
 from pydantic import BaseModel
+
+from ares_agent.domain.payloads import StoredEventPayload
 
 
 class InspectionIngestRequest(BaseModel):
@@ -23,7 +23,7 @@ class EventQueryResponse(BaseModel):
 
     event_id: str
     found: bool
-    result: dict[str, Any] | None = None
+    result: StoredEventPayload | None = None
 
 
 class EventFailureResponse(BaseModel):

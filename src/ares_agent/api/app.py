@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-from typing import Any, NotRequired, TypedDict, cast
+from typing import Any, cast
 
 from agno.workflow import Workflow
 from fastapi import FastAPI
@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from ares_agent.api.schemas import EventFailureResponse, EventQueryResponse, InspectionIngestRequest
 from ares_agent.domain.events import EventSeed, generate_event_id
+from ares_agent.domain.payloads import StoredEventPayload
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.infra.event_store import InMemoryEventStore
 from ares_agent.model_clients.http_clients import (
@@ -35,20 +36,6 @@ from ares_agent.workflows.inspection_event_workflow import (
     build_inspection_event_workflow,
     build_preliminary_only_workflow,
 )
-
-
-class StoredEventPayload(TypedDict):
-    event_id: str
-    stage: str
-    preliminary_feedback: NotRequired[dict[str, Any]]
-    refined_feedback: NotRequired[dict[str, Any]]
-    evidence_package: NotRequired[dict[str, Any]]
-    judgment: NotRequired[dict[str, Any]]
-    preliminary: NotRequired[dict[str, Any]]
-    frame_seed: NotRequired[dict[str, Any]]
-    failed_step: NotRequired[str | None]
-    error_type: NotRequired[str]
-    error_message: NotRequired[str]
 
 
 def _load_fixture_json(path: Path) -> dict[str, object]:
