@@ -493,54 +493,51 @@ scene_policies:
 
 ### 8.4 `scene_activation_block` 注入内容
 
-第 7 节解析出来的 `SceneActivationPolicy(location, camera_id)` 不应只作为配置结果保留在后端，而应被格式化为结构化策略块注入 `system prompt`。
+第 7 节解析出来的 `SceneActivationPolicy(location, camera_id)` 不应直接把原始控制字段或完整策略对象暴露给模型。  
+它应先在后端被转换成更适合模型理解的抽象语义，再注入 `system prompt`。
 
-建议至少注入以下字段：
+当前建议仅注入以下字段：
 
-- `{camera_id}`
-- `{location}`
 - `{scene_hint}`
-- `{enabled_categories}`
-- `{disabled_categories}`
 - `{priority_categories}`
-- `{location_constraints}`
+- `{open_risk_guidance}`
+
+其中：
+
+- `scene_hint`
+  - 描述当前画面的场景抽象语义，例如“道路正前方通行空间场景”或“店铺立面与门前人行道场景”
+- `priority_categories`
+  - 描述当前场景下应优先关注的标准类别
+- `open_risk_guidance`
+  - 描述开放通用风险的输出原则
 
 推荐注入后的文本结构例如：
 
 ```text
-Current scene activation policy:
-- camera_id: left
-- location: 南山路
+Current scene focus:
 - scene_hint: storefront-facing side camera in roadside commercial block
-- enabled_categories:
-  - staff_not_wear_mask
-  - goods_blocking_road
-  - unauthorized_electrical_wiring
-- disabled_categories:
-  - motor_vehicle_illegal_parking
-  - nonmotor_vehicle_illegal_parking
-  - off_leash_dog_nuisance
 - priority_categories:
   - staff_not_wear_mask
   - goods_blocking_road
   - unauthorized_electrical_wiring
-- location_constraints:
-  - focus on storefront frontage
-  - focus on sidewalk occupation near shops
-  - focus on outdoor charging behavior around storefronts
+- open_risk_guidance:
+  - if visible evidence strongly suggests a risk outside the priority standard categories, output open_risk with a concise risk type
 ```
 
 ### 8.5 模型使用规则
 
-仅仅把列表注入进去还不够，还应在 `scene_activation_block` 中明确定义模型如何使用它们。
+这一块不再要求模型理解 `camera_id`、`location`、`enabled_categories`、`disabled_categories` 这些后端控制字段。  
+模型只需要理解：
+
+- 当前场景是什么
+- 当前应优先关注哪些类别
+- 当前如何处理标准类目之外的风险
 
 推荐增加以下规则语义：
 
-- 优先在 `enabled_categories` 内进行标准类别判断
 - `priority_categories` 内的类别应优先审查
-- `disabled_categories` 中的类别原则上不应作为最终标准类别输出
-- 若 `disabled_categories` 中的现象非常明显，可作为 `open_risk` 线索，但不优先输出为标准类别
-- `location_constraints` 是本次场景下的空间语义前提
+- 若图像中未出现 `priority_categories` 内的充分证据，可继续做全局环境分析，但不要偏离当前场景重点
+- 若出现明显但不属于当前优先标准类目的异常现象，可按 `open_risk_guidance` 输出 `open_risk`
 
 ### 8.6 `user prompt` 的角色
 
@@ -573,14 +570,19 @@ Analyze this inspection image under the configured scene policy and output the r
 2. workflow 或其前置解析层计算：
 - `SceneActivationPolicy(location, camera_id)`
 
-3. 将策略结果格式化为：
+3. 后端将策略结果转换为模型可见的抽象语义：
+- `scene_hint`
+- `priority_categories`
+- `open_risk_guidance`
+
+4. 将这些字段格式化为：
 - `scene_activation_block`
 
-4. 使用配置模板组装最终 `system prompt`
+5. 使用配置模板组装最终 `system prompt`
 
-5. 使用轻量固定模板生成 `user prompt`
+6. 使用轻量固定模板生成 `user prompt`
 
-6. 与 `image_url` 一起组成最终 `messages`
+7. 与 `image_url` 一起组成最终 `messages`
 
 最终结果不是“一份静态 prompt”，而是：
 
@@ -770,18 +772,9 @@ prompts:
 
     scene_activation_block_template: |
       Current scene activation policy:
-      - camera_id: {camera_id}
-      - location: {location}
       - scene_hint: {scene_hint}
-      - enabled_categories: {enabled_categories}
-      - disabled_categories: {disabled_categories}
       - priority_categories: {priority_categories}
-      - location_constraints: {location_constraints}
-
-      Use rules:
-      - prioritize enabled_categories
-      - prioritize priority_categories first
-      - do not output disabled_categories as standard categories unless they should be treated as open_risk
+      - open_risk_guidance: {open_risk_guidance}
 
     reasoning_block: |
       Always analyze the full environment before deciding the violation category.
@@ -914,7 +907,7 @@ prompts:
 
 - 新版请求体不再依赖 `frame_id`
 - 当前场景组合的激活类别是可解释、可配置、可测试的
-- `VLM-1` 最终使用的 `system prompt` 能直接体现当前 `camera_id + location` 组合语义
+- `VLM-1` 最终使用的 `system prompt` 能体现当前场景的抽象语义与重点类别，而不是直接暴露控制字段
 
 ## 12. 测试计划
 
@@ -949,7 +942,8 @@ prompts:
 新增覆盖：
 
 - `scene_activation_block` 是否正确拼装
-- `enabled_categories / disabled_categories / priority_categories / location_constraints` 是否全部进 `system prompt`
+- `scene_hint / priority_categories / open_risk_guidance` 是否全部进 `system prompt`
+- `camera_id / location / enabled_categories / disabled_categories / location_constraints` 是否不会直接进入 `system prompt`
 - `front + 南山路` 与 `left + 南山路` 生成的最终 `system prompt` 明显不同
 
 ### 12.5 `VLM-1` 处理测试
@@ -957,7 +951,7 @@ prompts:
 新增覆盖：
 
 - 不同 `camera_id + location` 组合下发送给 VLM-1 的 `messages` 是否符合预期
-- `user prompt` 是否保持轻量
+- `user prompt` 是否保持轻量且不承载场景控制字段
 - 图像是否继续通过 `image_url` 传递
 
 ### 12.6 workflow 测试
