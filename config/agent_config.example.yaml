@@ -3,13 +3,14 @@ agent:
 
 orchestrator:
   enable_async_refine: true
+  chain_mode: full
 
 callback:
   plugin: http_callback
   endpoint: https://backend.example/api/v1/events/callback
   auth_token:
   auth_token_env:
-  timeout_ms: 3000
+  timeout_ms: 120000
   retry:
     max_attempts: 3
     backoff_ms: 1000
@@ -155,21 +156,21 @@ scene_policies:
         scene_hint: storefront-facing camera in dense storefront block
 
 model_clients:
-  mode: mock
+  mode: http
   preliminary:
-    base_url: http://127.0.0.1:30000
-    endpoint: /mock/vlm/preliminary
-    model_name: inspection-vlm
-    timeout_ms: 12000
-    temperature: 0.1
-    max_tokens: 1024
+    base_url: http://192.168.30.14:8010
+    endpoint: /v1/chat/completions
+    model_name: Qwen3_5
+    timeout_ms: 120000
+    temperature: 0.6
+    max_tokens: 16384
   judge:
     base_url: http://127.0.0.1:30001
     endpoint: /mock/vlm/judge
     model_name: inspection-vlm
-    timeout_ms: 15000
+    timeout_ms: 350000
     temperature: 0.0
-    max_tokens: 1024
+    max_tokens: 16384
   sam3:
     base_url: http://127.0.0.1:8001
     endpoint: /mock/sam3/segment
