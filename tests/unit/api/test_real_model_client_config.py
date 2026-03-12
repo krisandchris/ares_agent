@@ -99,7 +99,7 @@ def test_build_model_clients_from_config_uses_real_urls_and_params(tmp_path: Pat
                 "    global_policy_block: |",
                 "      GLOBAL BLOCK",
                 "    scene_activation_block_template: |",
-                "      camera_id={camera_id}; location={location}; enabled_categories={enabled_categories}",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",

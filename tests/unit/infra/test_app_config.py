@@ -94,7 +94,7 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
                 "    global_policy_block: |",
                 "      GLOBAL POLICY BLOCK",
                 "    scene_activation_block_template: |",
-                "      camera_id={camera_id}; location={location}; enabled_categories={enabled_categories}",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",
@@ -123,7 +123,7 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
         "goods_blocking_road",
     ]
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
-    assert "camera_id={camera_id}" in config.prompts.preliminary.scene_activation_block_template
+    assert "scene_hint={scene_hint}" in config.prompts.preliminary.scene_activation_block_template
 
 
 def test_load_config_rejects_refined_without_preliminary_callback(tmp_path: Path) -> None:

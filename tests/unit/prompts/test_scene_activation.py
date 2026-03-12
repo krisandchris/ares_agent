@@ -50,6 +50,7 @@ def test_scene_activation_prefers_location_camera_override() -> None:
     assert context.priority_categories == ["staff_not_wear_mask"]
     assert context.location_constraints == ["focus on roadside and storefront frontage"]
     assert context.scene_hint == "storefront-facing camera"
+    assert "open_risk" in context.open_risk_guidance
 
 
 def test_scene_activation_falls_back_to_defaults_without_override() -> None:
@@ -80,3 +81,4 @@ def test_scene_activation_falls_back_to_defaults_without_override() -> None:
     assert context.priority_categories == ["motor_vehicle_illegal_parking"]
     assert context.location_constraints == ["focus on roadside occupation"]
     assert context.scene_hint == "road-facing camera"
+    assert "open_risk" in context.open_risk_guidance

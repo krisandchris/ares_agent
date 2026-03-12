@@ -15,6 +15,9 @@ class SceneActivationContext(BaseModel):
     priority_categories: list[str] = Field(default_factory=list)
     location_constraints: list[str] = Field(default_factory=list)
     scene_hint: str = ""
+    open_risk_guidance: str = (
+        "If visible evidence strongly suggests a risk outside the priority standard categories, output open_risk with a concise risk type."
+    )
 
 
 def resolve_scene_activation_context(
@@ -51,6 +54,9 @@ def resolve_scene_activation_context(
             location_default.location_constraints,
         ),
         scene_hint=override.scene_hint or camera_default.scene_hint or location_default.scene_hint,
+        open_risk_guidance=(
+            "If visible evidence strongly suggests a risk outside the priority standard categories, output open_risk with a concise risk type."
+        ),
     )
 
 

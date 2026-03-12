@@ -80,7 +80,7 @@ def test_create_app_runs_full_workflow_in_http_mode_with_configured_clients(tmp_
                 "    global_policy_block: |",
                 "      GLOBAL BLOCK",
                 "    scene_activation_block_template: |",
-                "      camera_id={camera_id}; location={location}; enabled_categories={enabled_categories}",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",

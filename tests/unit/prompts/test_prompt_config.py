@@ -32,7 +32,7 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
                 "    global_policy_block: |",
                 "      GLOBAL BLOCK",
                 "    scene_activation_block_template: |",
-                "      camera_id={camera_id}; location={location}; enabled_categories={enabled_categories}",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",
@@ -52,7 +52,7 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
     config = load_config(config_path)
 
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
-    assert "camera_id={camera_id}" in config.prompts.preliminary.scene_activation_block_template
+    assert "scene_hint={scene_hint}" in config.prompts.preliminary.scene_activation_block_template
     assert "custom judge model" in config.prompts.judge.system
     assert "category_code={category_code}" in config.prompts.judge.user
 
@@ -62,8 +62,8 @@ def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() 
         preliminary_role_block="ROLE BLOCK",
         preliminary_global_policy_block="GLOBAL BLOCK",
         preliminary_scene_activation_block_template=(
-            "camera_id={camera_id}; location={location}; "
-            "enabled_categories={enabled_categories}; location_constraints={location_constraints}"
+            "scene_hint={scene_hint}; priority_categories={priority_categories}; "
+            "open_risk_guidance={open_risk_guidance}"
         ),
         preliminary_reasoning_block="REASONING BLOCK",
         preliminary_output_contract_block="OUTPUT CONTRACT BLOCK",
@@ -102,9 +102,8 @@ def test_configurable_prompt_builder_renders_preliminary_system_prompt_with_scen
         preliminary_role_block="ROLE BLOCK",
         preliminary_global_policy_block="GLOBAL BLOCK",
         preliminary_scene_activation_block_template=(
-            "camera_id={camera_id}; location={location}; scene_hint={scene_hint}; "
-            "enabled_categories={enabled_categories}; disabled_categories={disabled_categories}; "
-            "priority_categories={priority_categories}; location_constraints={location_constraints}"
+            "scene_hint={scene_hint}; priority_categories={priority_categories}; "
+            "open_risk_guidance={open_risk_guidance}"
         ),
         preliminary_reasoning_block="REASONING BLOCK",
         preliminary_output_contract_block="OUTPUT CONTRACT BLOCK",
@@ -130,16 +129,17 @@ def test_configurable_prompt_builder_renders_preliminary_system_prompt_with_scen
             priority_categories=["staff_not_wear_mask"],
             location_constraints=["focus on storefront frontage"],
             scene_hint="storefront-facing side camera",
+            open_risk_guidance="If strong evidence of uncategorized risk exists, output open_risk.",
         ),
     )
 
     system_text = messages[0]["content"]
     assert "ROLE BLOCK" in system_text
     assert "GLOBAL BLOCK" in system_text
-    assert "camera_id=left" in system_text
-    assert "location=南山路" in system_text
-    assert "enabled_categories=staff_not_wear_mask, goods_blocking_road" in system_text
-    assert "disabled_categories=motor_vehicle_illegal_parking" in system_text
+    assert "camera_id=" not in system_text
+    assert "location=南山路" not in system_text
+    assert "enabled_categories=" not in system_text
+    assert "disabled_categories=" not in system_text
     assert "priority_categories=staff_not_wear_mask" in system_text
-    assert "location_constraints=focus on storefront frontage" in system_text
+    assert "open_risk_guidance=If strong evidence of uncategorized risk exists, output open_risk." in system_text
     assert "OUTPUT CONTRACT BLOCK" in system_text
