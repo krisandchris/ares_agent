@@ -31,6 +31,7 @@ Not implemented yet:
 - [框架选型记录](./docs/plans/2026-03-09-agent-framework-selection-among-agentscope-dify-agno.md)
 - [MVP 收口报告](./docs/plans/2026-03-11-mvp-closure-report.md)
 - [生产化下一步规划](./docs/plans/2026-03-11-productionization-next-steps-plan.md)
+- [`inspection-items` camera/location feature 方案](./docs/plans/2026-03-12-inspection-items-camera-location-feature-plan.md)
 
 ## Project Structure
 
