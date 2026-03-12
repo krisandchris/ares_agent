@@ -8,7 +8,7 @@ import mimetypes
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, TypedDict, cast
 from urllib.parse import urlparse
 
 from ares_agent.api.app import _build_prompt_builder_from_config
@@ -17,7 +17,19 @@ from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.model_clients.http_clients import Requester, SglangVlmPreliminaryClient
 from ares_agent.model_clients.mock_clients import MockPreliminaryClient
 from ares_agent.prompts.scene_activation import SceneActivationContext
+from ares_agent.prompts.builders import PromptBuilder
 from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
+
+
+class MessageContentPart(TypedDict, total=False):
+    type: str
+    text: str
+    image_url: dict[str, str]
+
+
+class ChatMessage(TypedDict):
+    role: str
+    content: str | list[MessageContentPart]
 
 
 @dataclass(frozen=True)
@@ -27,7 +39,7 @@ class Vlm1TesterOutput:
     scene_activation: SceneActivationContext
     system_prompt: str
     user_prompt: str
-    messages: list[dict[str, Any]]
+    messages: list[ChatMessage]
     result: PreliminaryResult
 
 
@@ -68,9 +80,12 @@ def run_vlm1_preliminary_test(
         occur_time=occur_time,
     )
     scene_activation = _resolve_scene_activation(prompt_builder, seed)
-    messages = prompt_builder.build_preliminary_messages(
+    messages = cast(
+        list[ChatMessage],
+        prompt_builder.build_preliminary_messages(
         seed,
         scene_activation_context=scene_activation,
+        ),
     )
     client = _build_preliminary_client(
         config,
@@ -176,7 +191,7 @@ def main() -> None:
 def _build_preliminary_client(
     config: AppConfig,
     *,
-    prompt_builder: Any,
+    prompt_builder: PromptBuilder,
     preliminary_requester: Requester | None = None,
 ):
     if config.model_clients.mode == "http":
@@ -197,7 +212,7 @@ def _build_preliminary_client(
     return MockPreliminaryClient(fixture_path=config.mock_clients.preliminary_fixture)
 
 
-def _resolve_scene_activation(prompt_builder: Any, seed: EventSeed) -> SceneActivationContext:
+def _resolve_scene_activation(prompt_builder: PromptBuilder, seed: EventSeed) -> SceneActivationContext:
     if getattr(prompt_builder, "scene_activation_resolver", None) is not None:
         return prompt_builder.scene_activation_resolver.resolve(
             camera_id=seed.camera_id,
@@ -209,7 +224,7 @@ def _resolve_scene_activation(prompt_builder: Any, seed: EventSeed) -> SceneActi
     )
 
 
-def _extract_user_text(messages: list[dict[str, Any]]) -> str:
+def _extract_user_text(messages: list[ChatMessage]) -> str:
     content = messages[1]["content"]
     if isinstance(content, list):
         for item in content:

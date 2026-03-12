@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
+from typing import Any, TypedDict, cast
 
 from agno.workflow import Workflow
 from fastapi import FastAPI
@@ -34,6 +35,20 @@ from ares_agent.workflows.inspection_event_workflow import (
     build_inspection_event_workflow,
     build_preliminary_only_workflow,
 )
+
+
+class StoredEventPayload(TypedDict, total=False):
+    event_id: str
+    stage: str
+    preliminary_feedback: dict[str, Any]
+    refined_feedback: dict[str, Any]
+    evidence_package: dict[str, Any]
+    judgment: dict[str, Any]
+    preliminary: dict[str, Any]
+    frame_seed: dict[str, Any]
+    failed_step: str | None
+    error_type: str
+    error_message: str
 
 
 def _load_fixture_json(path: Path) -> dict[str, object]:
@@ -288,7 +303,7 @@ def create_app(
             app.state.event_store.save(failure_payload["event_id"], failure_payload)
             status_code = 500 if failure_payload["error_type"] == "FileNotFoundError" else 502
             return JSONResponse(status_code=status_code, content=failure_payload)
-        payload = dict(workflow_output.content)
+        payload = cast(StoredEventPayload, dict(workflow_output.content))
         app.state.event_store.save(payload["event_id"], payload)
         return payload
 
@@ -309,12 +324,14 @@ def _workflow_succeeded(workflow_output: object) -> bool:
     return bool(step_results) and all(getattr(step_result, "success", False) for step_result in step_results)
 
 
-def _build_failure_payload(seed: EventSeed, workflow_output: object) -> dict[str, object]:
+def _build_failure_payload(seed: EventSeed, workflow_output: object) -> StoredEventPayload:
     step_results = getattr(workflow_output, "step_results", None) or []
     first_failed = next((step for step in step_results if not getattr(step, "success", False)), None)
     error_text = getattr(first_failed, "error", None) or "Workflow execution failed"
     error_type, error_message = _parse_error(error_text)
-    return EventFailureResponse(
+    return cast(
+        StoredEventPayload,
+        EventFailureResponse(
         event_id=generate_event_id(seed),
         camera_id=seed.camera_id,
         location=seed.location,
@@ -322,7 +339,8 @@ def _build_failure_payload(seed: EventSeed, workflow_output: object) -> dict[str
         failed_step=getattr(first_failed, "step_name", None),
         error_type=error_type,
         error_message=error_message,
-    ).model_dump(mode="json")
+        ).model_dump(mode="json"),
+    )
 
 
 def _parse_error(error_text: str) -> tuple[str, str]:
