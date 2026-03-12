@@ -39,6 +39,7 @@ Not implemented yet:
 - [MVP 最小收敛边界](./docs/plans/2026-03-12-mvp-minimum-convergence-boundary.md)
 - [生产化下一步规划](./docs/plans/2026-03-11-productionization-next-steps-plan.md)
 - [`inspection-items` camera/location feature 方案](./docs/plans/2026-03-12-inspection-items-camera-location-feature-plan.md)
+- [Gradio VLM-1 测试应用设计](./docs/plans/2026-03-12-gradio-vlm1-tester-design.md)
 
 ## Project Structure
 
@@ -84,6 +85,15 @@ This repository uses a `src/` layout. `pyrightconfig.json` is included so editor
 ```bash
 uv run uvicorn ares_agent.api.app:app --host 0.0.0.0 --port 8000
 ```
+
+## Run VLM-1 Tester
+
+```bash
+uv run python -m ares_agent.tools.vlm1_tester --config config/agent_config.example.yaml --host 127.0.0.1 --port 7860
+```
+
+This launches a standalone Gradio app that only tests the `camera_id + location -> scene policy -> VLM-1` path.
+It does not enter the main `SAM3 -> VLM-2 -> callback` workflow.
 
 ## Example Request
 
