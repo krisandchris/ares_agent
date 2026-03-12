@@ -25,7 +25,7 @@ from ares_agent.model_clients.mock_clients import (
     MockSegmentationClient,
 )
 from ares_agent.plugins.http_callback import HttpCallbackPlugin, Sender
-from ares_agent.prompts.scene_activation import resolve_scene_activation_context
+from ares_agent.prompts.scene_activation import ScenePolicyResolver
 from ares_agent.prompts.builders import (
     ConfigurableInspectionPromptBuilder,
     PromptBuilder,
@@ -74,17 +74,6 @@ def _build_prompt_builder_from_config(config: AppConfig) -> PromptBuilder:
     if config.scene_policies is None:
         raise ValueError("HTTP model client mode requires configured scene activation policies")
 
-    class _Resolver:
-        def __init__(self, scene_policies):
-            self.scene_policies = scene_policies
-
-        def resolve(self, *, camera_id: str, location: str):
-            return resolve_scene_activation_context(
-                self.scene_policies,
-                camera_id=camera_id,
-                location=location,
-            )
-
     return ConfigurableInspectionPromptBuilder(
         preliminary_role_block=config.prompts.preliminary.role_block,
         preliminary_scene_activation_block_template=config.prompts.preliminary.scene_activation_block_template,
@@ -96,7 +85,7 @@ def _build_prompt_builder_from_config(config: AppConfig) -> PromptBuilder:
         judge_user_template=config.prompts.judge.user,
         category_registry=config.category_registry,
         open_risk_guidance_default=config.open_risk_registry.guidance,
-        scene_activation_resolver=_Resolver(config.scene_policies),
+        scene_activation_resolver=ScenePolicyResolver(config.scene_policies),
     )
 
 

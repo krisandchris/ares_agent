@@ -1,6 +1,9 @@
+from textwrap import dedent
+
 from ares_agent.domain.events import EventSeed
+from ares_agent.infra.config import SceneActivationPolicyConfig, SceneActivationRule
 from ares_agent.prompts.builders import ConfigurableInspectionPromptBuilder, DefaultInspectionPromptBuilder
-from ares_agent.prompts.scene_activation import SceneActivationContext
+from ares_agent.prompts.scene_activation import SceneActivationContext, ScenePolicyResolver
 from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
 
 
@@ -115,3 +118,170 @@ def test_configurable_prompt_builder_uses_resolver_when_scene_context_not_provid
     assert "open_risk_guidance=If strong evidence suggests uncategorized risk, output open_risk." in system_text
     assert "CATEGORY FOCUS" in system_text
     assert "definition: goods on sidewalk" in system_text
+
+
+def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapshots() -> None:
+    builder = ConfigurableInspectionPromptBuilder(
+        preliminary_role_block="ROLE BLOCK",
+        preliminary_scene_activation_block_template=(
+            "scene_hint={scene_hint}\npriority_categories={priority_categories}\nopen_risk_guidance={open_risk_guidance}"
+        ),
+        preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
+        preliminary_reasoning_block="REASONING BLOCK",
+        preliminary_output_contract_block="OUTPUT BLOCK",
+        preliminary_user_template="Analyze inspection image for violations.",
+        judge_system_template="JUDGE SYSTEM",
+        judge_user_template="JUDGE USER {category_code}",
+        scene_activation_resolver=ScenePolicyResolver(
+            SceneActivationPolicyConfig(
+                camera_defaults={
+                    "front": SceneActivationRule(
+                        priority_categories=[
+                            "motor_vehicle_illegal_parking",
+                            "nonmotor_vehicle_illegal_parking",
+                            "goods_blocking_road",
+                        ],
+                        scene_hint="road-facing camera",
+                    ),
+                    "left": SceneActivationRule(
+                        priority_categories=[
+                            "staff_not_wear_mask",
+                            "goods_blocking_road",
+                            "unauthorized_electrical_wiring",
+                        ],
+                        scene_hint="storefront-facing camera",
+                    ),
+                    "right": SceneActivationRule(
+                        priority_categories=[
+                            "staff_not_wear_mask",
+                            "goods_blocking_road",
+                            "unauthorized_electrical_wiring",
+                        ],
+                        scene_hint="storefront-facing camera",
+                    ),
+                },
+                location_defaults={
+                    "南山路": SceneActivationRule(),
+                    "水坊街": SceneActivationRule(),
+                },
+            )
+        ),
+        category_registry={
+            "motor_vehicle_illegal_parking": {
+                "definition": "vehicle occupies prohibited area",
+                "common_objects": ["motor_vehicle", "blind_path"],
+                "relation_focus": ["vehicle_occupies_prohibited_area"],
+                "exceptions": [],
+            },
+            "nonmotor_vehicle_illegal_parking": {
+                "definition": "unattended nonmotor vehicle occupies walkway",
+                "common_objects": ["e_bike", "sidewalk"],
+                "relation_focus": ["unattended_vehicle_state"],
+                "exceptions": [],
+            },
+            "goods_blocking_road": {
+                "definition": "goods on sidewalk",
+                "common_objects": ["goods", "sidewalk"],
+                "relation_focus": ["obstruct_pedestrian_passage"],
+                "exceptions": [],
+            },
+            "staff_not_wear_mask": {
+                "definition": "catering staff missing mask",
+                "common_objects": ["staff", "mask", "counter"],
+                "relation_focus": ["staff_without_mask"],
+                "exceptions": [],
+            },
+            "unauthorized_electrical_wiring": {
+                "definition": "outdoor charging wire connected to electric vehicle",
+                "common_objects": ["wire", "charger", "electric_vehicle"],
+                "relation_focus": ["wire_connects_power_to_vehicle"],
+                "exceptions": [],
+            },
+        },
+        open_risk_guidance_default="If obvious risk exists outside prioritized categories, output open_risk.",
+    )
+
+    front_messages = builder.build_preliminary_messages(
+        EventSeed(
+            image_uri="s3://street/front.jpg",
+            camera_id="front",
+            location="南山路",
+            device_id="dog-30",
+            task_id="patrol-front",
+            occur_time="2026-03-12T11:00:00Z",
+        )
+    )
+    left_messages = builder.build_preliminary_messages(
+        EventSeed(
+            image_uri="s3://street/left.jpg",
+            camera_id="left",
+            location="南山路",
+            device_id="dog-30",
+            task_id="patrol-left",
+            occur_time="2026-03-12T11:00:01Z",
+        )
+    )
+
+    front_system = front_messages[0]["content"]
+    left_system = left_messages[0]["content"]
+
+    assert front_system == dedent(
+        """\
+        ROLE BLOCK
+
+        scene_hint=road-facing camera
+        priority_categories=motor_vehicle_illegal_parking, nonmotor_vehicle_illegal_parking, goods_blocking_road
+        open_risk_guidance=If obvious risk exists outside prioritized categories, output open_risk.
+
+        CATEGORY FOCUS
+        - motor_vehicle_illegal_parking
+          definition: vehicle occupies prohibited area
+          common_objects: motor_vehicle, blind_path
+          relation_focus: vehicle_occupies_prohibited_area
+          exceptions: none
+        - nonmotor_vehicle_illegal_parking
+          definition: unattended nonmotor vehicle occupies walkway
+          common_objects: e_bike, sidewalk
+          relation_focus: unattended_vehicle_state
+          exceptions: none
+        - goods_blocking_road
+          definition: goods on sidewalk
+          common_objects: goods, sidewalk
+          relation_focus: obstruct_pedestrian_passage
+          exceptions: none
+
+        REASONING BLOCK
+
+        OUTPUT BLOCK"""
+    )
+    assert left_system == dedent(
+        """\
+        ROLE BLOCK
+
+        scene_hint=storefront-facing camera
+        priority_categories=staff_not_wear_mask, goods_blocking_road, unauthorized_electrical_wiring
+        open_risk_guidance=If obvious risk exists outside prioritized categories, output open_risk.
+
+        CATEGORY FOCUS
+        - staff_not_wear_mask
+          definition: catering staff missing mask
+          common_objects: staff, mask, counter
+          relation_focus: staff_without_mask
+          exceptions: none
+        - goods_blocking_road
+          definition: goods on sidewalk
+          common_objects: goods, sidewalk
+          relation_focus: obstruct_pedestrian_passage
+          exceptions: none
+        - unauthorized_electrical_wiring
+          definition: outdoor charging wire connected to electric vehicle
+          common_objects: wire, charger, electric_vehicle
+          relation_focus: wire_connects_power_to_vehicle
+          exceptions: none
+
+        REASONING BLOCK
+
+        OUTPUT BLOCK"""
+    )
+    assert "camera_id=" not in front_system
+    assert "location=南山路" not in left_system

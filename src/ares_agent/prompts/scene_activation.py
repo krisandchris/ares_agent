@@ -15,9 +15,21 @@ class SceneActivationContext(BaseModel):
     priority_categories: list[str] = Field(default_factory=list)
     location_constraints: list[str] = Field(default_factory=list)
     scene_hint: str = ""
-    open_risk_guidance: str = (
-        "If visible evidence strongly suggests a risk outside the priority standard categories, output open_risk with a concise risk type."
-    )
+    open_risk_guidance: str = ""
+
+
+class ScenePolicyResolver:
+    """Resolve scene activation context from camera/location policy config."""
+
+    def __init__(self, config: SceneActivationPolicyConfig) -> None:
+        self.config = config
+
+    def resolve(self, *, camera_id: str, location: str) -> SceneActivationContext:
+        return resolve_scene_activation_context(
+            self.config,
+            camera_id=camera_id,
+            location=location,
+        )
 
 
 def resolve_scene_activation_context(
@@ -54,9 +66,6 @@ def resolve_scene_activation_context(
             location_default.location_constraints,
         ),
         scene_hint=override.scene_hint or camera_default.scene_hint or location_default.scene_hint,
-        open_risk_guidance=(
-            "If visible evidence strongly suggests a risk outside the priority standard categories, output open_risk with a concise risk type."
-        ),
     )
 
 

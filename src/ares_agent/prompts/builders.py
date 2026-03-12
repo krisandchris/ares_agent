@@ -6,6 +6,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from ares_agent.domain.events import EventSeed
+from ares_agent.prompts.preliminary_prompt import CategoryDefinitionRenderer, PreliminaryPromptAssembler
 from ares_agent.prompts.scene_activation import SceneActivationContext
 
 
@@ -96,6 +97,7 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     category_registry: dict[str, Any]
     open_risk_guidance_default: str
     scene_activation_resolver: Any | None = None
+    preliminary_prompt_assembler: PreliminaryPromptAssembler | None = None
 
     def build_preliminary_messages(
         self,
@@ -117,21 +119,21 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
         else:
             resolved_context = scene_activation_context
         open_risk_guidance = resolved_context.open_risk_guidance or self.open_risk_guidance_default
-        category_definitions = self._render_category_definitions(resolved_context.priority_categories)
-        system_prompt = "\n\n".join(
-            [
-                self.preliminary_role_block.strip(),
-                self.preliminary_scene_activation_block_template.format(
-                    scene_hint=resolved_context.scene_hint,
-                    priority_categories=", ".join(resolved_context.priority_categories),
-                    open_risk_guidance=open_risk_guidance,
-                ).strip(),
-                self.preliminary_category_focus_block_template.format(
-                    category_definitions=category_definitions,
-                ).strip(),
-                self.preliminary_reasoning_block.strip(),
-                self.preliminary_output_contract_block.strip(),
-            ]
+        resolved_context = resolved_context.model_copy(
+            update={"open_risk_guidance": open_risk_guidance},
+        )
+        category_definitions = CategoryDefinitionRenderer(self.category_registry).render(
+            resolved_context.priority_categories
+        )
+        assembler = self.preliminary_prompt_assembler or PreliminaryPromptAssembler()
+        system_prompt = assembler.assemble(
+            role_block=self.preliminary_role_block,
+            scene_activation_block_template=self.preliminary_scene_activation_block_template,
+            category_focus_block_template=self.preliminary_category_focus_block_template,
+            reasoning_block=self.preliminary_reasoning_block,
+            output_contract_block=self.preliminary_output_contract_block,
+            scene_activation_context=resolved_context,
+            category_definitions=category_definitions,
         )
         return [
             {"role": "system", "content": system_prompt},
@@ -176,40 +178,3 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
                 "content": content,
             },
         ]
-
-    def _render_category_definitions(self, priority_categories: list[str]) -> str:
-        rendered_rules: list[str] = []
-        for code in priority_categories:
-            rule = self.category_registry.get(code)
-            if rule is None:
-                continue
-            definition = _rule_value(rule, "definition")
-            common_objects = _rule_list(rule, "common_objects")
-            relation_focus = _rule_list(rule, "relation_focus")
-            exceptions = _rule_list(rule, "exceptions")
-            rendered_rules.append(
-                "\n".join(
-                    [
-                        f"- {code}",
-                        f"  definition: {definition}",
-                        f"  common_objects: {', '.join(common_objects) if common_objects else 'none'}",
-                        f"  relation_focus: {', '.join(relation_focus) if relation_focus else 'none'}",
-                        f"  exceptions: {', '.join(exceptions) if exceptions else 'none'}",
-                    ]
-                )
-            )
-        return "\n".join(rendered_rules) if rendered_rules else "- none"
-
-
-def _rule_value(rule: Any, key: str) -> str:
-    if isinstance(rule, dict):
-        return str(rule.get(key, ""))
-    return str(getattr(rule, key))
-
-
-def _rule_list(rule: Any, key: str) -> list[str]:
-    if isinstance(rule, dict):
-        value = rule.get(key, [])
-    else:
-        value = getattr(rule, key)
-    return [str(item) for item in value]
