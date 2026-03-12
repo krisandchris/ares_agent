@@ -465,11 +465,11 @@ scene_policies:
 1. `role_block`
 - 定义模型角色、巡检任务、基本职责
 
-2. `global_policy_block`
-- 定义标准类目、开放风险原则、全局判断规则
-
-3. `scene_activation_block`
+2. `scene_activation_block`
 - 注入由第 7 节策略解析得到的当前场景策略
+
+3. `category_focus_block`
+- 注入当前 `priority_categories` 对应的精简类别定义摘要
 
 4. `reasoning_block`
 - 要求模型先分析环境，再做类别判断
@@ -482,9 +482,9 @@ scene_policies:
 ```text
 {role_block}
 
-{global_policy_block}
-
 {scene_activation_block}
+
+{category_focus_block}
 
 {reasoning_block}
 
@@ -599,14 +599,19 @@ Analyze this inspection image under the configured scene policy and output the r
 推荐改成：
 
 - `prompts.preliminary.role_block`
-- `prompts.preliminary.global_policy_block`
 - `prompts.preliminary.scene_activation_block_template`
+- `prompts.preliminary.category_focus_block_template`
 - `prompts.preliminary.reasoning_block`
 - `prompts.preliminary.output_contract_block`
 - `prompts.preliminary.user`
+- `category_registry`
+- `open_risk_registry`
 
 其中：
 
+- `prompts.preliminary.*` 负责 prompt 骨架
+- `category_registry` 负责标准类别定义与关系焦点
+- `open_risk_registry` 负责开放风险 guidance
 - 前 5 块在运行时拼成最终 `system prompt`
 - `user` 保持轻量短模板
 
@@ -749,11 +754,16 @@ scene_policies:
 为支持第 8 节的结构化 `system prompt`，当前 `prompts.preliminary.system` 不应继续保持单段文本，而应拆成以下块：
 
 - `role_block`
-- `global_policy_block`
 - `scene_activation_block_template`
+- `category_focus_block_template`
 - `reasoning_block`
 - `output_contract_block`
 - `user`
+
+同时，全量类别定义不应继续直接写进最终 prompt，而应拆到独立配置：
+
+- `category_registry`
+- `open_risk_registry`
 
 结构示意：
 
@@ -763,15 +773,15 @@ prompts:
     role_block: |
       You are a city-street visual inspection model for a robot-dog patrol backend.
 
-    global_policy_block: |
-      Standard categories:
-      ...
-
     scene_activation_block_template: |
       Current scene activation policy:
       - scene_hint: {scene_hint}
       - priority_categories: {priority_categories}
       - open_risk_guidance: {open_risk_guidance}
+
+    category_focus_block_template: |
+      Prioritized category references:
+      {category_definitions}
 
     reasoning_block: |
       Always analyze the full environment before deciding the violation category.
@@ -782,6 +792,18 @@ prompts:
 
     user: |
       Analyze this inspection image under the configured scene policy and output the required JSON.
+
+category_registry:
+  goods_blocking_road:
+    definition: 货物、材料、宣传牌、垃圾等堆放在人行道并阻碍通行
+    common_objects: [goods, materials, signboard, trash, storefront_entrance, sidewalk]
+    relation_focus: [objects_on_sidewalk, obstruct_pedestrian_passage]
+    exceptions: []
+
+open_risk_registry:
+  guidance: |
+    If obvious risk evidence exists but does not fit the prioritized standard categories,
+    output violation_category="open_risk" with a concise open_risk_type.
 ```
 
 ### 9.4 运行时配置结果
@@ -790,7 +812,8 @@ prompts:
 
 1. `scene_policies` 解析成：
    - `scene_activation_context`
-2. `prompts.preliminary.*_block` + `scene_activation_context`
+2. `scene_activation_context.priority_categories` 从 `category_registry` 中挑选少量类别定义并渲染成 `category_definitions`
+3. `prompts.preliminary.*_block` + `scene_activation_context` + `category_definitions`
    - 组合成最终 `system prompt`
 
 最终 `VLM-1` 使用的是：

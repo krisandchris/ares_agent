@@ -91,10 +91,11 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
-                "    global_policy_block: |",
-                "      GLOBAL POLICY BLOCK",
                 "    scene_activation_block_template: |",
                 "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",
@@ -106,6 +107,17 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
                 "      JUDGE SYSTEM",
                 "    user: |",
                 "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  staff_not_wear_mask:",
+                "    definition: catering staff missing mask",
+                "    common_objects:",
+                "      - staff",
+                "      - mask",
+                "    relation_focus:",
+                "      - staff_without_mask",
+                "open_risk_registry:",
+                "  guidance: |",
+                "    If obvious risk exists outside prioritized categories, output open_risk.",
             ]
         ),
         encoding="utf-8",
@@ -124,6 +136,8 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
     ]
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
     assert "scene_hint={scene_hint}" in config.prompts.preliminary.scene_activation_block_template
+    assert "{category_definitions}" in config.prompts.preliminary.category_focus_block_template
+    assert config.category_registry["staff_not_wear_mask"].definition == "catering staff missing mask"
 
 
 def test_load_config_rejects_refined_without_preliminary_callback(tmp_path: Path) -> None:

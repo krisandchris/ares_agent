@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, HttpUrl, model_validator
+from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 
 class AgentSettings(BaseModel):
@@ -51,23 +51,38 @@ class MockClientSettings(BaseModel):
 
 
 class SceneActivationRule(BaseModel):
-    enabled_categories: list[str] = []
-    disabled_categories: list[str] = []
-    priority_categories: list[str] = []
-    location_constraints: list[str] = []
+    enabled_categories: list[str] = Field(default_factory=list)
+    disabled_categories: list[str] = Field(default_factory=list)
+    priority_categories: list[str] = Field(default_factory=list)
+    location_constraints: list[str] = Field(default_factory=list)
     scene_hint: str = ""
 
 
 class SceneActivationPolicyConfig(BaseModel):
-    camera_defaults: dict[str, SceneActivationRule] = {}
-    location_defaults: dict[str, SceneActivationRule] = {}
-    overrides: dict[str, dict[str, SceneActivationRule]] = {}
+    camera_defaults: dict[str, SceneActivationRule] = Field(default_factory=dict)
+    location_defaults: dict[str, SceneActivationRule] = Field(default_factory=dict)
+    overrides: dict[str, dict[str, SceneActivationRule]] = Field(default_factory=dict)
+
+
+class CategoryRegistryRule(BaseModel):
+    definition: str
+    common_objects: list[str] = Field(default_factory=list)
+    relation_focus: list[str] = Field(default_factory=list)
+    exceptions: list[str] = Field(default_factory=list)
+
+
+class OpenRiskRegistry(BaseModel):
+    guidance: str = (
+        "If visible evidence strongly suggests a risk outside the prioritized standard categories, "
+        'output violation_category="open_risk" with a concise open_risk_type.'
+    )
+    examples: list[str] = Field(default_factory=list)
 
 
 class PreliminaryPromptSettings(BaseModel):
     role_block: str
-    global_policy_block: str
     scene_activation_block_template: str
+    category_focus_block_template: str
     reasoning_block: str
     output_contract_block: str
     user: str
@@ -106,6 +121,8 @@ class AppConfig(BaseModel):
     mock_clients: MockClientSettings
     prompts: PromptSettings | None = None
     scene_policies: SceneActivationPolicyConfig | None = None
+    category_registry: dict[str, CategoryRegistryRule] = Field(default_factory=dict)
+    open_risk_registry: OpenRiskRegistry = OpenRiskRegistry()
     model_clients: ModelClientSettings = ModelClientSettings()
     review: ReviewSettings = ReviewSettings()
 

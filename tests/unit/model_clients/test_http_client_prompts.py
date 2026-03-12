@@ -150,10 +150,11 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
         requester=fake_requester,
         prompt_builder=ConfigurableInspectionPromptBuilder(
             preliminary_role_block="ROLE BLOCK",
-            preliminary_global_policy_block="GLOBAL BLOCK",
             preliminary_scene_activation_block_template=(
-                "camera_id={camera_id}; location={location}; enabled_categories={enabled_categories}"
+                "scene_hint={scene_hint}; priority_categories={priority_categories}; "
+                "open_risk_guidance={open_risk_guidance}"
             ),
+            preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
             preliminary_reasoning_block="REASONING BLOCK",
             preliminary_output_contract_block="OUTPUT BLOCK",
             preliminary_user_template="Analyze inspection image for violations.",
@@ -162,6 +163,8 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
                 "category_code={category_code}; mask_labels={mask_labels}; "
                 "relation_hint={relation_hint}; evidence_basis_summary={evidence_basis_summary}"
             ),
+            category_registry={},
+            open_risk_guidance_default="Default open risk guidance.",
         ),
     )
 

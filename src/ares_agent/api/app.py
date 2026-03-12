@@ -87,13 +87,15 @@ def _build_prompt_builder_from_config(config: AppConfig) -> PromptBuilder:
 
     return ConfigurableInspectionPromptBuilder(
         preliminary_role_block=config.prompts.preliminary.role_block,
-        preliminary_global_policy_block=config.prompts.preliminary.global_policy_block,
         preliminary_scene_activation_block_template=config.prompts.preliminary.scene_activation_block_template,
+        preliminary_category_focus_block_template=config.prompts.preliminary.category_focus_block_template,
         preliminary_reasoning_block=config.prompts.preliminary.reasoning_block,
         preliminary_output_contract_block=config.prompts.preliminary.output_contract_block,
         preliminary_user_template=config.prompts.preliminary.user,
         judge_system_template=config.prompts.judge.system,
         judge_user_template=config.prompts.judge.user,
+        category_registry=config.category_registry,
+        open_risk_guidance_default=config.open_risk_registry.guidance,
         scene_activation_resolver=_Resolver(config.scene_policies),
     )
 

@@ -40,10 +40,11 @@ def test_build_prompt_builder_from_config_uses_yaml_templates(tmp_path: Path) ->
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
-                "    global_policy_block: |",
-                "      GLOBAL BLOCK",
                 "    scene_activation_block_template: |",
                 "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",
@@ -55,6 +56,17 @@ def test_build_prompt_builder_from_config_uses_yaml_templates(tmp_path: Path) ->
                 "      JUDGE SYSTEM",
                 "    user: |",
                 "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  goods_blocking_road:",
+                "    definition: goods on sidewalk",
+                "    common_objects:",
+                "      - goods",
+                "      - sidewalk",
+                "    relation_focus:",
+                "      - obstruct_pedestrian_passage",
+                "open_risk_registry:",
+                "  guidance: |",
+                "    If obvious risk exists outside prioritized categories, output open_risk.",
             ]
         ),
         encoding="utf-8",
@@ -65,7 +77,7 @@ def test_build_prompt_builder_from_config_uses_yaml_templates(tmp_path: Path) ->
 
     assert isinstance(builder, ConfigurableInspectionPromptBuilder)
     assert builder.preliminary_role_block.strip() == "ROLE BLOCK"
-    assert builder.preliminary_global_policy_block.strip() == "GLOBAL BLOCK"
+    assert "{category_definitions}" in builder.preliminary_category_focus_block_template
     assert builder.preliminary_user_template.strip() == "PRELIM USER"
     assert builder.judge_system_template.strip() == "JUDGE SYSTEM"
     assert builder.judge_user_template.strip() == "JUDGE USER {category_code}"
@@ -105,10 +117,11 @@ def test_build_model_clients_from_config_uses_http_clients_when_mode_is_http(tmp
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
-                "    global_policy_block: |",
-                "      GLOBAL BLOCK",
                 "    scene_activation_block_template: |",
                 "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
                 "    reasoning_block: |",
                 "      REASONING BLOCK",
                 "    output_contract_block: |",
@@ -120,6 +133,17 @@ def test_build_model_clients_from_config_uses_http_clients_when_mode_is_http(tmp
                 "      JUDGE SYSTEM",
                 "    user: |",
                 "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  goods_blocking_road:",
+                "    definition: goods on sidewalk",
+                "    common_objects:",
+                "      - goods",
+                "      - sidewalk",
+                "    relation_focus:",
+                "      - obstruct_pedestrian_passage",
+                "open_risk_registry:",
+                "  guidance: |",
+                "    If obvious risk exists outside prioritized categories, output open_risk.",
                 "model_clients:",
                 "  mode: http",
                 "  preliminary:",

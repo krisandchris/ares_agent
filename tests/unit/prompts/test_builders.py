@@ -76,17 +76,26 @@ def test_configurable_prompt_builder_uses_resolver_when_scene_context_not_provid
 
     builder = ConfigurableInspectionPromptBuilder(
         preliminary_role_block="ROLE BLOCK",
-        preliminary_global_policy_block="GLOBAL BLOCK",
         preliminary_scene_activation_block_template=(
             "scene_hint={scene_hint}; priority_categories={priority_categories}; "
             "open_risk_guidance={open_risk_guidance}"
         ),
+        preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
         preliminary_reasoning_block="REASONING BLOCK",
         preliminary_output_contract_block="OUTPUT BLOCK",
         preliminary_user_template="Analyze inspection image for violations.",
         judge_system_template="JUDGE SYSTEM",
         judge_user_template="JUDGE USER {category_code}",
         scene_activation_resolver=FakeResolver(),
+        category_registry={
+            "goods_blocking_road": {
+                "definition": "goods on sidewalk",
+                "common_objects": ["goods", "sidewalk"],
+                "relation_focus": ["obstruct_pedestrian_passage"],
+                "exceptions": [],
+            }
+        },
+        open_risk_guidance_default="Default open risk guidance.",
     )
 
     messages = builder.build_preliminary_messages(
@@ -104,3 +113,5 @@ def test_configurable_prompt_builder_uses_resolver_when_scene_context_not_provid
     assert "scene_hint=road-facing camera" in system_text
     assert "priority_categories=goods_blocking_road" in system_text
     assert "open_risk_guidance=If strong evidence suggests uncategorized risk, output open_risk." in system_text
+    assert "CATEGORY FOCUS" in system_text
+    assert "definition: goods on sidewalk" in system_text
