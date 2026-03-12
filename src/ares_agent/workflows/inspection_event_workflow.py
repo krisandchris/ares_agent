@@ -67,6 +67,7 @@ class PreliminaryClient(Protocol):
 
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
         """Perform the initial classification pass."""
+        ...
 
 
 class SegmentationClient(Protocol):
@@ -74,6 +75,7 @@ class SegmentationClient(Protocol):
 
     def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
         """Extract evidence material for the event."""
+        ...
 
 
 class EvidenceJudgeClient(Protocol):
@@ -92,6 +94,7 @@ class EvidenceJudgeClient(Protocol):
         preliminary: PreliminaryResult,
     ) -> EvidenceJudgeResult:
         """Judge whether the evidence supports the candidate category."""
+        ...
 
 
 class SinkPlugin(Protocol):
@@ -99,6 +102,7 @@ class SinkPlugin(Protocol):
 
     def send(self, event_payload: object, runtime_config: object) -> object:
         """Deliver a workflow result payload."""
+        ...
 
 
 @dataclass
