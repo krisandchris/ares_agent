@@ -8,7 +8,7 @@ import mimetypes
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, TypedDict, cast
+from typing import Protocol, cast
 from urllib.parse import urlparse
 
 from ares_agent.api.app import _build_prompt_builder_from_config
@@ -16,20 +16,9 @@ from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.model_clients.http_clients import Requester, SglangVlmPreliminaryClient
 from ares_agent.model_clients.mock_clients import MockPreliminaryClient
+from ares_agent.prompts.builders import PromptBuilder, PromptMessage, SceneActivationResolver
 from ares_agent.prompts.scene_activation import SceneActivationContext
-from ares_agent.prompts.builders import PromptBuilder
 from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
-
-
-class MessageContentPart(TypedDict, total=False):
-    type: str
-    text: str
-    image_url: dict[str, str]
-
-
-class ChatMessage(TypedDict):
-    role: str
-    content: str | list[MessageContentPart]
 
 
 @dataclass(frozen=True)
@@ -39,8 +28,12 @@ class Vlm1TesterOutput:
     scene_activation: SceneActivationContext
     system_prompt: str
     user_prompt: str
-    messages: list[ChatMessage]
+    messages: list[PromptMessage]
     result: PreliminaryResult
+
+
+class HasSceneActivationResolver(Protocol):
+    scene_activation_resolver: SceneActivationResolver | None
 
 
 def run_vlm1_preliminary_test(
@@ -81,10 +74,10 @@ def run_vlm1_preliminary_test(
     )
     scene_activation = _resolve_scene_activation(prompt_builder, seed)
     messages = cast(
-        list[ChatMessage],
+        list[PromptMessage],
         prompt_builder.build_preliminary_messages(
-        seed,
-        scene_activation_context=scene_activation,
+            seed,
+            scene_activation_context=scene_activation,
         ),
     )
     client = _build_preliminary_client(
@@ -213,8 +206,9 @@ def _build_preliminary_client(
 
 
 def _resolve_scene_activation(prompt_builder: PromptBuilder, seed: EventSeed) -> SceneActivationContext:
-    if getattr(prompt_builder, "scene_activation_resolver", None) is not None:
-        return prompt_builder.scene_activation_resolver.resolve(
+    resolver_holder = cast(HasSceneActivationResolver, prompt_builder)
+    if resolver_holder.scene_activation_resolver is not None:
+        return resolver_holder.scene_activation_resolver.resolve(
             camera_id=seed.camera_id,
             location=seed.location,
         )
@@ -224,7 +218,7 @@ def _resolve_scene_activation(prompt_builder: PromptBuilder, seed: EventSeed) ->
     )
 
 
-def _extract_user_text(messages: list[ChatMessage]) -> str:
+def _extract_user_text(messages: list[PromptMessage]) -> str:
     content = messages[1]["content"]
     if isinstance(content, list):
         for item in content:

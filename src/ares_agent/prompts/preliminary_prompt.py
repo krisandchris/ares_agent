@@ -2,15 +2,27 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TypedDict
+
+from ares_agent.infra.config import CategoryRegistryRule
 
 from ares_agent.prompts.scene_activation import SceneActivationContext
+
+
+class CategoryRulePayload(TypedDict):
+    definition: str
+    common_objects: list[str]
+    relation_focus: list[str]
+    exceptions: list[str]
+
+
+CategoryRegistryEntry = CategoryRegistryRule | CategoryRulePayload
 
 
 class CategoryDefinitionRenderer:
     """Render focused category references for prioritized categories only."""
 
-    def __init__(self, category_registry: dict[str, Any]) -> None:
+    def __init__(self, category_registry: dict[str, CategoryRegistryEntry]) -> None:
         self.category_registry = category_registry
 
     def render(self, priority_categories: list[str]) -> str:
@@ -64,13 +76,13 @@ class PreliminaryPromptAssembler:
         )
 
 
-def _rule_value(rule: Any, key: str) -> str:
+def _rule_value(rule: CategoryRegistryEntry, key: str) -> str:
     if isinstance(rule, dict):
         return str(rule.get(key, ""))
     return str(getattr(rule, key))
 
 
-def _rule_list(rule: Any, key: str) -> list[str]:
+def _rule_list(rule: CategoryRegistryEntry, key: str) -> list[str]:
     if isinstance(rule, dict):
         value = rule.get(key, [])
     else:

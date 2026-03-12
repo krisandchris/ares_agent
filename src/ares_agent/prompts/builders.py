@@ -3,11 +3,34 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Protocol, TypedDict
 
 from ares_agent.domain.events import EventSeed
-from ares_agent.prompts.preliminary_prompt import CategoryDefinitionRenderer, PreliminaryPromptAssembler
+from ares_agent.prompts.preliminary_prompt import (
+    CategoryDefinitionRenderer,
+    CategoryRegistryEntry,
+    PreliminaryPromptAssembler,
+)
 from ares_agent.prompts.scene_activation import SceneActivationContext
+
+
+class ImageUrlPayload(TypedDict):
+    url: str
+
+
+class MessageContentPart(TypedDict, total=False):
+    type: str
+    text: str
+    image_url: ImageUrlPayload
+
+
+class PromptMessage(TypedDict):
+    role: str
+    content: str | list[MessageContentPart]
+
+
+class SceneActivationResolver(Protocol):
+    def resolve(self, *, camera_id: str, location: str) -> SceneActivationContext: ...
 
 
 class PromptBuilder:
@@ -17,7 +40,7 @@ class PromptBuilder:
         self,
         seed: EventSeed,
         scene_activation_context: SceneActivationContext | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PromptMessage]:
         raise NotImplementedError
 
     def build_judge_messages(
@@ -28,7 +51,7 @@ class PromptBuilder:
         mask_labels: list[str],
         relation_hint: str,
         evidence_basis_summary: str,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PromptMessage]:
         raise NotImplementedError
 
 
@@ -39,7 +62,7 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
         self,
         seed: EventSeed,
         scene_activation_context: SceneActivationContext | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PromptMessage]:
         del scene_activation_context
         return [
             {"role": "system", "content": "You are a visual preliminary inspection model."},
@@ -63,14 +86,14 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
         mask_labels: list[str],
         relation_hint: str,
         evidence_basis_summary: str,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PromptMessage]:
         user_text = (
             f"category_code={category_code}; "
             f"mask_labels={', '.join(mask_labels)}; "
             f"relation_hint={relation_hint}; "
             f"evidence_basis_summary={evidence_basis_summary}"
         )
-        content: list[dict[str, Any]] = [{"type": "text", "text": user_text}]
+        content: list[MessageContentPart] = [{"type": "text", "text": user_text}]
         if overlay_image:
             content.append({"type": "image_url", "image_url": {"url": overlay_image}})
         return [
@@ -94,16 +117,16 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     preliminary_user_template: str
     judge_system_template: str
     judge_user_template: str
-    category_registry: dict[str, Any]
+    category_registry: dict[str, CategoryRegistryEntry]
     open_risk_guidance_default: str
-    scene_activation_resolver: Any | None = None
+    scene_activation_resolver: SceneActivationResolver | None = None
     preliminary_prompt_assembler: PreliminaryPromptAssembler | None = None
 
     def build_preliminary_messages(
         self,
         seed: EventSeed,
         scene_activation_context: SceneActivationContext | None = None,
-    ) -> list[dict[str, Any]]:
+    ) -> list[PromptMessage]:
         if scene_activation_context is None:
             if self.scene_activation_resolver is not None:
                 resolved_context = self.scene_activation_resolver.resolve(
@@ -157,8 +180,8 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
         mask_labels: list[str],
         relation_hint: str,
         evidence_basis_summary: str,
-    ) -> list[dict[str, Any]]:
-        content: list[dict[str, Any]] = [
+    ) -> list[PromptMessage]:
+        content: list[MessageContentPart] = [
             {
                 "type": "text",
                 "text": self.judge_user_template.format(
