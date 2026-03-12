@@ -20,9 +20,11 @@ from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
 @dataclass(frozen=True)
 class Vlm1TesterOutput:
     event_id: str
+    input_image_uri: str
     scene_activation: SceneActivationContext
     system_prompt: str
     user_prompt: str
+    messages: list[dict[str, Any]]
     result: PreliminaryResult
 
 
@@ -30,17 +32,28 @@ def run_vlm1_preliminary_test(
     *,
     config_path: str | Path,
     image_uri: str,
+    uploaded_image_path: str | Path | None = None,
     camera_id: str,
     location: str,
     device_id: str,
     task_id: str,
     occur_time: str,
+    mode_override: str | None = None,
     preliminary_requester: Requester | None = None,
 ) -> Vlm1TesterOutput:
     config = load_config(config_path)
+    if mode_override is not None:
+        config = config.model_copy(
+            update={
+                "model_clients": config.model_clients.model_copy(
+                    update={"mode": mode_override}
+                )
+            }
+        )
+    resolved_image_uri = _resolve_input_image_uri(image_uri=image_uri, uploaded_image_path=uploaded_image_path)
     prompt_builder = _build_prompt_builder_from_config(config)
     seed = EventSeed(
-        image_uri=image_uri,
+        image_uri=resolved_image_uri,
         camera_id=camera_id,
         location=location,
         device_id=device_id,
@@ -60,9 +73,11 @@ def run_vlm1_preliminary_test(
     result = client.analyze(seed)
     return Vlm1TesterOutput(
         event_id=generate_event_id(seed),
+        input_image_uri=resolved_image_uri,
         scene_activation=scene_activation,
         system_prompt=str(messages[0]["content"]),
         user_prompt=_extract_user_text(messages),
+        messages=messages,
         result=result,
     )
 
@@ -76,26 +91,31 @@ def create_gradio_app(
 
     def _submit(
         image_uri: str,
+        uploaded_image: str | None,
+        mode: str,
         camera_id: str,
         location: str,
         device_id: str,
         task_id: str,
         occur_time: str,
-    ) -> tuple[str, str, str, str]:
+    ) -> tuple[str, str, str, str, str]:
         output = run_vlm1_preliminary_test(
             config_path=config_path,
             image_uri=image_uri,
+            uploaded_image_path=uploaded_image,
             camera_id=camera_id,
             location=location,
             device_id=device_id,
             task_id=task_id,
             occur_time=occur_time,
+            mode_override=mode,
             preliminary_requester=preliminary_requester,
         )
         return (
             output.event_id,
             json.dumps(output.scene_activation.model_dump(), ensure_ascii=False, indent=2),
             output.system_prompt,
+            json.dumps(output.messages, ensure_ascii=False, indent=2),
             json.dumps(output.result.model_dump(), ensure_ascii=False, indent=2),
         )
 
@@ -108,6 +128,8 @@ def create_gradio_app(
         )
         with gr.Row():
             image_uri = gr.Textbox(label="image_uri", value="s3://street/frame-001.jpg")
+            uploaded_image = gr.File(label="uploaded_image", type="filepath")
+            mode = gr.Radio(label="mode", choices=["mock", "http"], value="mock")
             camera_id = gr.Dropdown(label="camera_id", choices=["front", "left", "right"], value="front")
             location = gr.Textbox(label="location", value="南山路")
         with gr.Row():
@@ -118,12 +140,13 @@ def create_gradio_app(
         event_id = gr.Textbox(label="event_id")
         scene_activation = gr.Code(label="scene_activation_context", language="json")
         system_prompt = gr.Code(label="system_prompt", language="markdown")
+        messages = gr.Code(label="messages", language="json")
         preliminary_result = gr.Code(label="preliminary_result", language="json")
 
         submit.click(
             _submit,
-            inputs=[image_uri, camera_id, location, device_id, task_id, occur_time],
-            outputs=[event_id, scene_activation, system_prompt, preliminary_result],
+            inputs=[image_uri, uploaded_image, mode, camera_id, location, device_id, task_id, occur_time],
+            outputs=[event_id, scene_activation, system_prompt, messages, preliminary_result],
         )
     return demo
 
@@ -186,6 +209,12 @@ def _extract_user_text(messages: list[dict[str, Any]]) -> str:
             if item.get("type") == "text":
                 return str(item.get("text", ""))
     return ""
+
+
+def _resolve_input_image_uri(*, image_uri: str, uploaded_image_path: str | Path | None) -> str:
+    if uploaded_image_path:
+        return Path(uploaded_image_path).resolve().as_uri()
+    return image_uri
 
 
 def _build_http_endpoint(base_url: str, endpoint: str) -> str:

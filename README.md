@@ -95,6 +95,12 @@ uv run python -m ares_agent.tools.vlm1_tester --config config/agent_config.examp
 This launches a standalone Gradio app that only tests the `camera_id + location -> scene policy -> VLM-1` path.
 It does not enter the main `SAM3 -> VLM-2 -> callback` workflow.
 
+Tester extras:
+
+- upload a local image and automatically convert it to a `file://` URI
+- switch between `mock` and `http` mode per run
+- inspect the final `messages` JSON sent to `VLM-1`
+
 ## Example Request
 
 ```bash

@@ -80,11 +80,23 @@
 页面输入沿用当前 MVP 的最小输入契约：
 
 - `image_uri`
+- `uploaded_image`
+- `mode`
 - `camera_id`
 - `location`
 - `device_id`
 - `task_id`
 - `occur_time`
+
+说明：
+
+- `uploaded_image` 优先级高于 `image_uri`
+- 当用户上传本地图片时，测试工具会自动转换为 `file://...` URI
+- `mode` 支持：
+  - `mock`
+  - `http`
+
+这样可以在同一页面里切换 fixture 测试与真实/桩 HTTP 测试
 
 ### 4.2 输出
 
@@ -93,7 +105,8 @@
 1. `event_id`
 2. `scene_activation_context`
 3. `system_prompt`
-4. `preliminary_result`
+4. `messages`
+5. `preliminary_result`
 
 这 4 块足够覆盖：
 
@@ -102,6 +115,8 @@
 - prompt 是否正确
 - 模型输出是否正确
 
+其中 `messages` 用于直接观察最终发送给 `VLM-1` 的多模态消息体。
+
 ## 5. 调用流程说明
 
 ### 5.1 处理步骤
@@ -109,13 +124,15 @@
 Gradio 页面点击 `Run VLM-1` 后，按以下顺序处理：
 
 1. Gradio 收集输入参数
-2. Core tester 加载配置文件
-3. 构造 `EventSeed`
-4. 计算 `event_id`
-5. 解析 `camera_id + location` 对应的 `SceneActivationContext`
-6. 生成最终 `VLM-1 messages`
-7. 直接调用 `VLM-1`
-8. 返回页面可展示的结构化结果
+2. 若用户上传本地图片，则转换为 `file://...` URI
+3. 根据页面选择覆盖本次运行的 `mode`
+4. Core tester 加载配置文件
+5. 构造 `EventSeed`
+6. 计算 `event_id`
+7. 解析 `camera_id + location` 对应的 `SceneActivationContext`
+8. 生成最终 `VLM-1 messages`
+9. 直接调用 `VLM-1`
+10. 返回页面可展示的结构化结果
 
 ### 5.2 时序图
 
@@ -129,9 +146,11 @@ sequenceDiagram
     participant Builder as PromptBuilder
     participant VLM1 as VLM-1 Client
 
-    User->>UI: 输入 image_uri/camera_id/location/device_id/task_id/occur_time
+    User->>UI: 输入 image_uri 或上传图片，选择 mode/camera_id/location/device_id/task_id/occur_time
     User->>UI: 点击 Run VLM-1
     UI->>Tester: run_vlm1_preliminary_test(...)
+    Tester->>Tester: 选择 uploaded_image 或 image_uri
+    Tester->>Tester: 按页面 mode 覆盖本次 client 模式
     Tester->>Config: load_config(config_path)
     Tester->>Tester: build EventSeed + event_id
     Tester->>Resolver: resolve(camera_id, location)
@@ -140,7 +159,7 @@ sequenceDiagram
     Builder-->>Tester: system_prompt + user_prompt + image_url
     Tester->>VLM1: analyze(seed)
     VLM1-->>Tester: PreliminaryResult
-    Tester-->>UI: event_id / scene_activation / system_prompt / preliminary_result
+    Tester-->>UI: event_id / scene_activation / system_prompt / messages / preliminary_result
     UI-->>User: 展示测试结果
 ```
 
@@ -148,14 +167,16 @@ sequenceDiagram
 
 ```mermaid
 flowchart TD
-    A[Gradio 输入参数] --> B[加载 YAML 配置]
-    B --> C[构造 EventSeed]
-    C --> D[生成 event_id]
-    D --> E[解析 SceneActivationContext]
-    E --> F[组装 VLM-1 prompt]
-    F --> G[调用 VLM-1]
-    G --> H[解析 PreliminaryResult]
-    H --> I[展示 event_id / scene_activation / system_prompt / result]
+    A[Gradio 输入参数] --> B[选择 uploaded_image 或 image_uri]
+    B --> C[按页面选择覆盖 mode]
+    C --> D[加载 YAML 配置]
+    D --> E[构造 EventSeed]
+    E --> F[生成 event_id]
+    F --> G[解析 SceneActivationContext]
+    G --> H[组装 VLM-1 messages]
+    H --> I[调用 VLM-1]
+    I --> J[解析 PreliminaryResult]
+    J --> K[展示 event_id / scene_activation / system_prompt / messages / result]
 ```
 
 ## 6. 运行方式
