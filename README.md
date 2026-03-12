@@ -86,6 +86,24 @@ This repository uses a `src/` layout. `pyrightconfig.json` is included so editor
 uv run uvicorn ares_agent.api.app:app --host 0.0.0.0 --port 8000
 ```
 
+## Run Formal Service
+
+```bash
+./scripts/run_service.sh --config config/agent_config.example.yaml --host 0.0.0.0 --port 8000
+```
+
+`orchestrator.chain_mode` in config controls the runtime chain:
+
+- `full`
+  - `VLM-1 -> SAM3 -> VLM-2 -> callback -> event_store`
+- `vlm1_only`
+  - only runs `VLM-1`
+  - returns preliminary-stage payload
+  - requires `callback.send_refined=false`
+
+For MinIO object storage, provide `image_uri` as an `http(s)` object URL.
+That URL is passed through to `VLM-1` unchanged in service mode.
+
 ## Run VLM-1 Tester
 
 ```bash

@@ -309,3 +309,34 @@ def test_load_config_rejects_unknown_priority_category_in_scene_policy(tmp_path:
 
     with pytest.raises(ValueError, match="Unknown categories referenced in scene_policies"):
         load_config(config_path)
+
+
+def test_load_config_rejects_refined_callback_when_chain_mode_is_vlm1_only(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    sam_fixture = tmp_path / "sam.json"
+    sam_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "orchestrator:",
+                "  chain_mode: vlm1_only",
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "  send_preliminary: true",
+                "  send_refined: true",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {sam_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="vlm1_only chain_mode requires send_refined=false"):
+        load_config(config_path)

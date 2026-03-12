@@ -16,6 +16,7 @@ class AgentSettings(BaseModel):
 
 class OrchestratorSettings(BaseModel):
     enable_async_refine: bool = True
+    chain_mode: Literal["full", "vlm1_only"] = "full"
 
 
 class RetrySettings(BaseModel):
@@ -155,6 +156,12 @@ class AppConfig(BaseModel):
             categories = ", ".join(sorted(unknown_categories))
             raise ValueError(f"Unknown categories referenced in scene_policies: {categories}")
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_chain_mode_settings(self) -> "AppConfig":
+        if self.orchestrator.chain_mode == "vlm1_only" and self.callback.send_refined:
+            raise ValueError("vlm1_only chain_mode requires send_refined=false")
         return self
 
 

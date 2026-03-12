@@ -148,6 +148,7 @@ def _preliminary_step_factory(
     preliminary_client: PreliminaryClient,
     sink_plugin: SinkPlugin,
     runtime_config: object,
+    async_enqueued: bool,
 ) -> Step:
     def run(step_input: StepInput) -> StepOutput:
         try:
@@ -161,7 +162,7 @@ def _preliminary_step_factory(
                 violation_category=preliminary.violation_category,
                 open_risk_type=preliminary.open_risk_type,
                 confidence=preliminary.confidence,
-                async_enqueued=True,
+                async_enqueued=async_enqueued,
             )
             if _should_send_callback(runtime_config, "preliminary"):
                 callback_result = sink_plugin.send(feedback, runtime_config)
@@ -169,6 +170,7 @@ def _preliminary_step_factory(
             return StepOutput(
                 content={
                     "event_id": event_id,
+                    "stage": "preliminary",
                     "frame_seed": seed.model_dump(),
                     "preliminary": preliminary.model_dump(),
                     "preliminary_feedback": feedback.model_dump(),
@@ -292,6 +294,7 @@ def build_inspection_event_workflow(
                 preliminary_client=preliminary_client,
                 sink_plugin=sink_plugin,
                 runtime_config=runtime_config,
+                async_enqueued=True,
             ),
             _segmentation_step_factory(segmentation_client=segmentation_client),
             _evidence_judge_step_factory(
@@ -299,5 +302,27 @@ def build_inspection_event_workflow(
                 sink_plugin=sink_plugin,
                 runtime_config=runtime_config,
             ),
+        ],
+    )
+
+
+def build_preliminary_only_workflow(
+    *,
+    preliminary_client: PreliminaryClient,
+    sink_plugin: SinkPlugin,
+    runtime_config: object,
+) -> Workflow:
+    """Create a single-node VLM-1-only workflow."""
+    return Workflow(
+        name="Inspection Preliminary Workflow",
+        input_schema=EventSeed,
+        telemetry=False,
+        steps=[
+            _preliminary_step_factory(
+                preliminary_client=preliminary_client,
+                sink_plugin=sink_plugin,
+                runtime_config=runtime_config,
+                async_enqueued=False,
+            )
         ],
     )
