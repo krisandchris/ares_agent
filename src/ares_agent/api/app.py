@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from pathlib import Path
 import json
-from typing import Any, TypedDict, cast
+from typing import Any, NotRequired, TypedDict, cast
 
 from agno.workflow import Workflow
 from fastapi import FastAPI
@@ -37,18 +37,18 @@ from ares_agent.workflows.inspection_event_workflow import (
 )
 
 
-class StoredEventPayload(TypedDict, total=False):
+class StoredEventPayload(TypedDict):
     event_id: str
     stage: str
-    preliminary_feedback: dict[str, Any]
-    refined_feedback: dict[str, Any]
-    evidence_package: dict[str, Any]
-    judgment: dict[str, Any]
-    preliminary: dict[str, Any]
-    frame_seed: dict[str, Any]
-    failed_step: str | None
-    error_type: str
-    error_message: str
+    preliminary_feedback: NotRequired[dict[str, Any]]
+    refined_feedback: NotRequired[dict[str, Any]]
+    evidence_package: NotRequired[dict[str, Any]]
+    judgment: NotRequired[dict[str, Any]]
+    preliminary: NotRequired[dict[str, Any]]
+    frame_seed: NotRequired[dict[str, Any]]
+    failed_step: NotRequired[str | None]
+    error_type: NotRequired[str]
+    error_message: NotRequired[str]
 
 
 def _load_fixture_json(path: Path) -> dict[str, object]:
@@ -295,7 +295,7 @@ def create_app(
     @app.post("/v1/inspection-items", response_model=None)
     async def ingest_inspection_item(
         request: InspectionIngestRequest,
-    ) -> JSONResponse | dict[str, object]:
+    ) -> JSONResponse | StoredEventPayload:
         seed = EventSeed.model_validate(request.model_dump())
         workflow_output = app.state.inspection_workflow.run(input=seed)
         if not _workflow_succeeded(workflow_output):
