@@ -100,19 +100,27 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
         seed: EventSeed,
         scene_activation_context: SceneActivationContext | None = None,
     ) -> list[dict[str, Any]]:
-        scene_activation_context = scene_activation_context or (
-            self.scene_activation_resolver.resolve(camera_id=seed.camera_id, location=seed.location)
-            if self.scene_activation_resolver is not None
-            else SceneActivationContext(camera_id=seed.camera_id, location=seed.location)
-        )
+        if scene_activation_context is None:
+            if self.scene_activation_resolver is not None:
+                resolved_context = self.scene_activation_resolver.resolve(
+                    camera_id=seed.camera_id,
+                    location=seed.location,
+                )
+            else:
+                resolved_context = SceneActivationContext(
+                    camera_id=seed.camera_id,
+                    location=seed.location,
+                )
+        else:
+            resolved_context = scene_activation_context
         system_prompt = "\n\n".join(
             [
                 self.preliminary_role_block.strip(),
                 self.preliminary_global_policy_block.strip(),
                 self.preliminary_scene_activation_block_template.format(
-                    scene_hint=scene_activation_context.scene_hint,
-                    priority_categories=", ".join(scene_activation_context.priority_categories),
-                    open_risk_guidance=scene_activation_context.open_risk_guidance,
+                    scene_hint=resolved_context.scene_hint,
+                    priority_categories=", ".join(resolved_context.priority_categories),
+                    open_risk_guidance=resolved_context.open_risk_guidance,
                 ).strip(),
                 self.preliminary_reasoning_block.strip(),
                 self.preliminary_output_contract_block.strip(),
