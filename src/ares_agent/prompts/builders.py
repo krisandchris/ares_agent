@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Protocol, TypedDict
+from typing import Mapping, Protocol, TypedDict
 
 from ares_agent.domain.events import EventSeed
 from ares_agent.prompts.preliminary_prompt import (
@@ -117,7 +117,7 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
     preliminary_user_template: str
     judge_system_template: str
     judge_user_template: str
-    category_registry: dict[str, CategoryRegistryEntry]
+    category_registry: Mapping[str, CategoryRegistryEntry]
     open_risk_guidance_default: str
     scene_activation_resolver: SceneActivationResolver | None = None
     preliminary_prompt_assembler: PreliminaryPromptAssembler | None = None

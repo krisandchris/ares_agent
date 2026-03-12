@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import TypedDict
+from typing import Mapping, TypedDict
 
 from ares_agent.infra.config import CategoryRegistryRule
 
@@ -22,7 +22,7 @@ CategoryRegistryEntry = CategoryRegistryRule | CategoryRulePayload
 class CategoryDefinitionRenderer:
     """Render focused category references for prioritized categories only."""
 
-    def __init__(self, category_registry: dict[str, CategoryRegistryEntry]) -> None:
+    def __init__(self, category_registry: Mapping[str, CategoryRegistryEntry]) -> None:
         self.category_registry = category_registry
 
     def render(self, priority_categories: list[str]) -> str:
