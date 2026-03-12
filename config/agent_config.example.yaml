@@ -117,6 +117,42 @@ scene_policies:
           - staff_not_wear_mask
           - goods_blocking_road
           - unauthorized_electrical_wiring
+    水坊街:
+      front:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - off_leash_dog_nuisance
+        priority_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - off_leash_dog_nuisance
+        scene_hint: road-facing camera near mixed storefront block
+      left:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - staff_not_wear_mask
+        priority_categories:
+          - road_occupying_vendor
+          - staff_not_wear_mask
+          - goods_blocking_road
+        scene_hint: storefront-facing camera in dense storefront block
+      right:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - staff_not_wear_mask
+        priority_categories:
+          - road_occupying_vendor
+          - staff_not_wear_mask
+          - unauthorized_electrical_wiring
+        scene_hint: storefront-facing camera in dense storefront block
 
 model_clients:
   mode: mock
