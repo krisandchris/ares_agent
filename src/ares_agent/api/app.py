@@ -12,6 +12,7 @@ from fastapi.responses import JSONResponse
 
 from ares_agent.api.schemas import EventFailureResponse, EventQueryResponse, InspectionIngestRequest
 from ares_agent.domain.events import EventSeed, generate_event_id
+from ares_agent.domain.json_types import JsonObject
 from ares_agent.domain.payloads import StoredEventPayload
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.infra.event_store import InMemoryEventStore
@@ -38,7 +39,7 @@ from ares_agent.workflows.inspection_event_workflow import (
 )
 
 
-def _load_fixture_json(path: Path) -> dict[str, object]:
+def _load_fixture_json(path: Path) -> JsonObject:
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -239,8 +240,8 @@ def create_app(
     async def healthz() -> dict[str, str]:
         return {"status": "ok"}
 
-    @app.post("/mock/vlm/preliminary")
-    async def mock_vlm_preliminary(_: dict[str, object]) -> dict[str, object]:
+    @app.post("/mock/vlm/preliminary", response_model=None)
+    async def mock_vlm_preliminary(_: dict[str, object]) -> JsonObject:
         payload = _load_fixture_json(app.state.app_config.mock_clients.preliminary_fixture)
         return {
             "id": "chatcmpl-preliminary",
@@ -257,8 +258,8 @@ def create_app(
             ],
         }
 
-    @app.post("/mock/vlm/judge")
-    async def mock_vlm_judge(_: dict[str, object]) -> dict[str, object]:
+    @app.post("/mock/vlm/judge", response_model=None)
+    async def mock_vlm_judge(_: dict[str, object]) -> JsonObject:
         payload = _load_fixture_json(app.state.app_config.mock_clients.evidence_judge_fixture)
         return {
             "id": "chatcmpl-judge",
@@ -275,8 +276,8 @@ def create_app(
             ],
         }
 
-    @app.post("/mock/sam3/segment")
-    async def mock_sam3_segment(_: dict[str, object]) -> dict[str, object]:
+    @app.post("/mock/sam3/segment", response_model=None)
+    async def mock_sam3_segment(_: dict[str, object]) -> JsonObject:
         return _load_fixture_json(app.state.app_config.mock_clients.segmentation_fixture)
 
     @app.post("/v1/inspection-items", response_model=None)

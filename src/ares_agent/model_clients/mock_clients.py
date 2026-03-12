@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
-from typing import Any
+
+from ares_agent.domain.json_types import JsonObject
 
 from ares_agent.domain.events import EventSeed
 from ares_agent.workflows.inspection_event_workflow import (
@@ -13,8 +14,7 @@ from ares_agent.workflows.inspection_event_workflow import (
     SegmentationResult,
 )
 
-
-def _load_json(path: Path) -> dict[str, Any]:
+def _load_json(path: Path) -> JsonObject:
     fixture_path = path if path.is_absolute() else Path.cwd() / path
     return json.loads(fixture_path.read_text(encoding="utf-8"))
 
