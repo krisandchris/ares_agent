@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Protocol
+from typing import Any, Protocol, TypedDict, cast
 
 from agno.workflow import Step, Workflow
 from agno.workflow.types import StepInput, StepOutput
@@ -112,10 +112,31 @@ class WorkflowStageError(RuntimeError):
         return f"{self.cause_type}: {self.message}"
 
 
+class PreliminaryStepContent(TypedDict):
+    event_id: str
+    stage: str
+    frame_seed: dict[str, Any]
+    preliminary: dict[str, Any]
+    preliminary_feedback: dict[str, Any]
+
+
+class SegmentationStepContent(PreliminaryStepContent):
+    segmentation: dict[str, Any]
+
+
 def _wrap_stage_error(exc: Exception) -> WorkflowStageError:
     if isinstance(exc, WorkflowStageError):
         return exc
     return WorkflowStageError(cause_type=exc.__class__.__name__, message=str(exc))
+
+
+def _require_step_content(content: object, step_name: str) -> dict[str, Any]:
+    if not isinstance(content, dict):
+        raise WorkflowStageError(
+            cause_type="TypeError",
+            message=f"{step_name} step content must be a dictionary",
+        )
+    return cast(dict[str, Any], content)
 
 
 def _ensure_callback_success(stage_name: str, callback_result: object) -> None:
@@ -185,10 +206,14 @@ def _preliminary_step_factory(
 def _segmentation_step_factory(*, segmentation_client: SegmentationClient) -> Step:
     def run(step_input: StepInput) -> StepOutput:
         try:
-            preliminary_content = step_input.get_step_content("preliminary") or {}
-            image_uri = preliminary_content["frame_seed"]["image_uri"]
-            preliminary = preliminary_content["preliminary"]
-            segmentation_targets = preliminary["segmentation_targets"]
+            preliminary_content = cast(
+                PreliminaryStepContent,
+                _require_step_content(step_input.get_step_content("preliminary"), "preliminary"),
+            )
+            frame_seed = cast(dict[str, Any], preliminary_content["frame_seed"])
+            preliminary = cast(dict[str, Any], preliminary_content["preliminary"])
+            image_uri = cast(str, frame_seed["image_uri"])
+            segmentation_targets = cast(list[str], preliminary["segmentation_targets"])
             segmentation = segmentation_client.segment(image_uri, segmentation_targets)
             return StepOutput(
                 content={
@@ -210,11 +235,14 @@ def _evidence_judge_step_factory(
 ) -> Step:
     def run(step_input: StepInput) -> StepOutput:
         try:
-            segmentation_content = step_input.get_step_content("segmentation") or {}
+            segmentation_content = cast(
+                SegmentationStepContent,
+                _require_step_content(step_input.get_step_content("segmentation"), "segmentation"),
+            )
             event_id = segmentation_content["event_id"]
-            preliminary = segmentation_content["preliminary"]
-            segmentation = segmentation_content["segmentation"]
-            segmentation_status = segmentation.get("segmentation_status", "ok")
+            preliminary = cast(dict[str, Any], segmentation_content["preliminary"])
+            segmentation = cast(dict[str, Any], segmentation_content["segmentation"])
+            segmentation_status = cast(str, segmentation.get("segmentation_status", "ok"))
             if segmentation_status == "failed":
                 return StepOutput(
                     content={
@@ -226,7 +254,7 @@ def _evidence_judge_step_factory(
                         "preliminary_feedback": segmentation_content["preliminary_feedback"],
                     }
                 )
-            final_category = preliminary["violation_category"]
+            final_category = cast(str, preliminary["violation_category"])
             judgment = evidence_judge_client.judge(
                 event_id=event_id,
                 category_code=final_category,
@@ -238,10 +266,11 @@ def _evidence_judge_step_factory(
                 evidence_basis_summary=segmentation["evidence_basis_summary"],
                 preliminary=PreliminaryResult.model_validate(preliminary),
             )
+            frame_seed = cast(dict[str, Any], segmentation_content["frame_seed"])
             refined_feedback = build_refined_feedback(
                 event_id=event_id,
-                camera_id=segmentation_content["frame_seed"]["camera_id"],
-                location=segmentation_content["frame_seed"]["location"],
+                camera_id=cast(str, frame_seed["camera_id"]),
+                location=cast(str, frame_seed["location"]),
                 final_category=judgment.final_category,
                 final_confidence=judgment.final_confidence,
                 archive_readiness=judgment.archive_readiness,
