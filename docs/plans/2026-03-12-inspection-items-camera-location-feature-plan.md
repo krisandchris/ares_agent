@@ -175,7 +175,7 @@
 
 变成：
 
-- “根据 `camera_id + location` 激活一组候选类别和位置规则”
+- “根据 `camera_id + location` 联合决定最终分析类别集合与位置规则”
 
 ### 7.2 推荐策略
 
@@ -183,19 +183,24 @@
 
 - `SceneActivationPolicy`
 
-它由两个维度构成：
+但这里不应简单理解为“相机策略”和“片区策略”各自独立，再做机械合并。  
+根据当前业务语义，更准确的做法是：
 
-1. `camera policy`
-2. `location policy`
+1. `camera default policy`
+2. `location default policy`
+3. `camera + location override policy`
 
-最终生成：
+最终生成的是当前输入场景下的一份**最终激活策略**，包含：
 
 - `enabled_categories`
 - `disabled_categories`
+- `priority_categories`
 - `location_constraints`
 - `scene_hint`
 
 ### 7.3 `camera_id` 维度建议
+
+`camera_id` 的作用是提供朝向语义上的默认倾向，而不是单独决定最终类别集合。
 
 #### `front`
 
@@ -238,7 +243,8 @@
 
 ### 7.4 `location` 维度建议
 
-`location` 不直接决定相机朝向，但决定片区场景规则。
+`location` 不直接决定相机朝向，但决定片区场景规则。  
+它提供的是片区层面的默认约束，而不是最终类别集合。
 
 例如：
 
@@ -253,91 +259,111 @@
 
 ### 7.5 合并策略
 
-最终规则建议采用：
+第 7 节原先如果采用简单交集策略：
 
 - `enabled_categories = camera_enabled ∩ location_enabled`
-- `disabled_categories = camera_disabled ∪ location_disabled`
-- `location_constraints = location_specific_rules`
 
-这样可以避免某一侧单独放开导致类别过宽。
+会无法表达真实业务需求。  
+原因是当前场景不是“相机”和“片区”分别提供一组独立约束，最后简单求交，而是：
 
-## 8. `VLM-1` prompt 设计调整
+- `camera_id`
+- `location`
 
-### 8.1 当前问题
+共同决定当前应该检测哪些类别。
 
-当前 `VLM-1` prompt 更像通用全量识别提示。  
-新 feature 引入后，prompt 必须有能力接收当前场景下：
+因此建议把最终规则改为以下优先级：
 
-- 哪些类别可以判断
-- 哪些类别不应优先判断
-- 当前片区有哪些位置约束
+1. 优先查找 `camera + location` 的组合覆盖规则
+2. 若不存在覆盖规则，再回退到：
+   - `camera default policy`
+   - `location default policy`
+3. 若仍未命中，则使用全局默认规则
 
-### 8.2 推荐方案
+也就是说，真正的主决策层应当是：
 
-不要把全部规则硬塞回固定 `system prompt`，而是采用：
+- `SceneActivationPolicy(location, camera_id)`
 
-- 固定 `system prompt`
-- 配置驱动的 `user prompt` 变量注入
+而不是：
 
-新增可注入变量建议包括：
+- `camera policy ∩ location policy`
 
-- `{camera_id}`
-- `{location}`
-- `{enabled_categories}`
-- `{location_constraints}`
-- `{scene_hint}`
+### 7.6 组合规则示例
 
-### 8.3 预期效果
+根据当前业务示例，可直接表达为：
 
-这样 `VLM-1` 在分析图像前，就知道：
+- `front + 南山路`
+  - 检测：除 `staff_not_wear_mask` 外的其他主要类别
 
-- 当前图像来自哪一个朝向相机
-- 当前在什么片区
-- 当前应该优先判断哪些违规类别
-- 当前片区有哪些额外限制
+- `left + 南山路`
+  - 只检测：
+    - `staff_not_wear_mask`
+    - `goods_blocking_road`
+    - `unauthorized_electrical_wiring`
 
-## 9. 配置文件设计
+- `right + 南山路`
+  - 同 `left + 南山路`
 
-### 9.1 推荐新增配置块
+这个例子说明，真实策略应允许某个组合直接定义：
 
-建议在配置中新增：
+- 最终启用集合
+- 最终禁用集合
+- 该组合下的优先类别
+- 该组合下的位置约束
 
-- `scene_policies`
+### 7.7 推荐配置结构
 
-结构示意：
+建议将配置结构改成三层：
 
 ```yaml
 scene_policies:
-  cameras:
+  camera_defaults:
     front:
       enabled_categories:
         - motor_vehicle_illegal_parking
         - nonmotor_vehicle_illegal_parking
         - off_leash_dog_nuisance
+      priority_categories:
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
       scene_hint: road-facing camera
+
     left:
       enabled_categories:
         - road_occupying_vendor
         - goods_blocking_road
         - unauthorized_electrical_wiring
         - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
       scene_hint: storefront-facing camera
+
     right:
       enabled_categories:
         - road_occupying_vendor
         - goods_blocking_road
         - unauthorized_electrical_wiring
         - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
       scene_hint: storefront-facing camera
 
-  locations:
+  location_defaults:
     南山路:
       enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
         - motor_vehicle_illegal_parking
         - nonmotor_vehicle_illegal_parking
-        - goods_blocking_road
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
       location_constraints:
-        - focus on roadside, sidewalk, bus-stop, and blind-path occupation
+        - focus on roadside, sidewalk, storefront frontage, and pedestrian passage
 
     水坊街:
       enabled_categories:
@@ -347,16 +373,441 @@ scene_policies:
         - staff_not_wear_mask
       location_constraints:
         - focus on storefront frontage, sidewalk occupation, and outdoor charging behavior
+
+  overrides:
+    南山路:
+      front:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - vagrants_blocking_roadway
+          - begging_blocking_roadway
+          - off_leash_dog_nuisance
+        disabled_categories:
+          - staff_not_wear_mask
+        priority_categories:
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - goods_blocking_road
+
+      left:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+
+      right:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
 ```
 
-### 9.2 运行时结果
+### 7.8 运行时决策逻辑
 
-在 workflow 进入 `VLM-1` 前，先根据：
+运行时应按以下顺序生成 `scene_activation_context`：
+
+1. 读取 `camera_defaults[camera_id]`
+2. 读取 `location_defaults[location]`
+3. 检查是否存在 `overrides[location][camera_id]`
+4. 如果存在 override，直接以 override 为最终规则
+5. 如果不存在 override，再按默认规则生成最终激活集合
+
+最终交给 `VLM-1` 的上下文建议包括：
 
 - `camera_id`
 - `location`
+- `enabled_categories`
+- `disabled_categories`
+- `priority_categories`
+- `location_constraints`
+- `scene_hint`
 
-组装出一份 `scene_activation_context`，供 prompt builder 使用。
+## 8. `VLM-1` prompt 设计调整
+
+### 8.1 当前问题
+
+当前 `VLM-1` prompt 更像一份通用全量识别提示。  
+如果仍然沿用这种单体静态 `system prompt`，那么第 7 节得到的策略结果只能被塞进较轻的 `user prompt` 中，这会导致：
+
+- 场景规则不处于高优先级控制位
+- 不同相机朝向/片区组合的约束表达不够强
+- 后续规则变更时只能继续堆叠长文本，而不是做结构化注入
+
+因此，`VLM-1` 的提示词机制需要升级为：
+
+- **结构化可注入的 `system prompt`**
+
+### 8.2 设计目标
+
+新的提示词方案应满足：
+
+1. 全局巡检定义仍由 `system prompt` 主导
+2. `camera_id + location` 对应的场景策略应注入到 `system prompt`
+3. `user prompt` 仅承担“触发本次图像分析”的作用
+4. 不同场景组合应能生成不同的最终 `system prompt`
+
+### 8.3 推荐结构
+
+建议将当前 `VLM-1 system prompt` 拆成 5 个结构段：
+
+1. `role_block`
+- 定义模型角色、巡检任务、基本职责
+
+2. `global_policy_block`
+- 定义标准类目、开放风险原则、全局判断规则
+
+3. `scene_activation_block`
+- 注入由第 7 节策略解析得到的当前场景策略
+
+4. `reasoning_block`
+- 要求模型先分析环境，再做类别判断
+
+5. `output_contract_block`
+- 规定 JSON 输出字段、顺序和约束
+
+最终运行时拼装逻辑应是：
+
+```text
+{role_block}
+
+{global_policy_block}
+
+{scene_activation_block}
+
+{reasoning_block}
+
+{output_contract_block}
+```
+
+### 8.4 `scene_activation_block` 注入内容
+
+第 7 节解析出来的 `SceneActivationPolicy(location, camera_id)` 不应只作为配置结果保留在后端，而应被格式化为结构化策略块注入 `system prompt`。
+
+建议至少注入以下字段：
+
+- `{camera_id}`
+- `{location}`
+- `{scene_hint}`
+- `{enabled_categories}`
+- `{disabled_categories}`
+- `{priority_categories}`
+- `{location_constraints}`
+
+推荐注入后的文本结构例如：
+
+```text
+Current scene activation policy:
+- camera_id: left
+- location: 南山路
+- scene_hint: storefront-facing side camera in roadside commercial block
+- enabled_categories:
+  - staff_not_wear_mask
+  - goods_blocking_road
+  - unauthorized_electrical_wiring
+- disabled_categories:
+  - motor_vehicle_illegal_parking
+  - nonmotor_vehicle_illegal_parking
+  - off_leash_dog_nuisance
+- priority_categories:
+  - staff_not_wear_mask
+  - goods_blocking_road
+  - unauthorized_electrical_wiring
+- location_constraints:
+  - focus on storefront frontage
+  - focus on sidewalk occupation near shops
+  - focus on outdoor charging behavior around storefronts
+```
+
+### 8.5 模型使用规则
+
+仅仅把列表注入进去还不够，还应在 `scene_activation_block` 中明确定义模型如何使用它们。
+
+推荐增加以下规则语义：
+
+- 优先在 `enabled_categories` 内进行标准类别判断
+- `priority_categories` 内的类别应优先审查
+- `disabled_categories` 中的类别原则上不应作为最终标准类别输出
+- 若 `disabled_categories` 中的现象非常明显，可作为 `open_risk` 线索，但不优先输出为标准类别
+- `location_constraints` 是本次场景下的空间语义前提
+
+### 8.6 `user prompt` 的角色
+
+在这个方案下，`user prompt` 不再承担主要策略控制职责，而应保持轻量。
+
+建议 `user prompt` 仅保留类似：
+
+```text
+Analyze this inspection image under the configured scene policy and output the required JSON.
+```
+
+这意味着：
+
+- 全局定义和场景约束都进 `system prompt`
+- `user prompt` 只触发本次任务
+- 图像仍然通过 `image_url` 多模态输入传递
+
+### 8.7 运行时生成流程
+
+建议运行时按以下顺序生成最终用于处理该图片的提示词：
+
+1. API 接收：
+- `image_uri`
+- `camera_id`
+- `location`
+- `device_id`
+- `task_id`
+- `occur_time`
+
+2. workflow 或其前置解析层计算：
+- `SceneActivationPolicy(location, camera_id)`
+
+3. 将策略结果格式化为：
+- `scene_activation_block`
+
+4. 使用配置模板组装最终 `system prompt`
+
+5. 使用轻量固定模板生成 `user prompt`
+
+6. 与 `image_url` 一起组成最终 `messages`
+
+最终结果不是“一份静态 prompt”，而是：
+
+- 动态 `system prompt`
+- 轻量 `user prompt`
+- 当前图片 `image_url`
+
+三者组成的最终模型输入。
+
+### 8.8 配置结构要求
+
+为了支持这种模式，当前配置文件中的 `prompts.preliminary.system` 不应再只是一整段最终成稿，而应拆成可组合块。
+
+推荐改成：
+
+- `prompts.preliminary.role_block`
+- `prompts.preliminary.global_policy_block`
+- `prompts.preliminary.scene_activation_block_template`
+- `prompts.preliminary.reasoning_block`
+- `prompts.preliminary.output_contract_block`
+- `prompts.preliminary.user`
+
+其中：
+
+- 前 5 块在运行时拼成最终 `system prompt`
+- `user` 保持轻量短模板
+
+### 8.9 预期效果
+
+采用这种结构后，`VLM-1` 在处理图片前就能通过 `system prompt` 明确知道：
+
+- 当前图像来自哪一个朝向相机
+- 当前片区是什么
+- 当前组合下允许判断哪些类别
+- 哪些类别应禁用或降权
+- 哪些类别要优先检查
+- 当前片区有哪些位置语义约束
+
+这样第 7 节策略就不再只是后端内部规则，而会真正成为模型推理条件的一部分。
+
+## 9. 配置文件设计
+
+### 9.1 推荐新增配置块
+
+建议把配置设计拆成两部分：
+
+1. `scene_policies`
+2. `prompts.preliminary.*_block`
+
+也就是：
+
+- 第 7 节负责描述“当前场景下最终允许判断什么”
+- 第 8 节负责描述“这些策略如何被注入 VLM-1 system prompt”
+
+### 9.2 `scene_policies` 配置结构
+
+`scene_policies` 应负责提供：
+
+- `camera_defaults`
+- `location_defaults`
+- `overrides`
+
+结构示意：
+
+```yaml
+scene_policies:
+  camera_defaults:
+    front:
+      enabled_categories:
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - off_leash_dog_nuisance
+      priority_categories:
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+      scene_hint: road-facing camera
+
+    left:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+
+    right:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+
+  location_defaults:
+    南山路:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      location_constraints:
+        - focus on roadside, sidewalk, storefront frontage, and pedestrian passage
+
+    水坊街:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      location_constraints:
+        - focus on storefront frontage, sidewalk occupation, and outdoor charging behavior
+
+  overrides:
+    南山路:
+      front:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - vagrants_blocking_roadway
+          - begging_blocking_roadway
+          - off_leash_dog_nuisance
+        disabled_categories:
+          - staff_not_wear_mask
+        priority_categories:
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - goods_blocking_road
+
+      left:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+
+      right:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+```
+
+### 9.3 `prompts.preliminary` 配置结构
+
+为支持第 8 节的结构化 `system prompt`，当前 `prompts.preliminary.system` 不应继续保持单段文本，而应拆成以下块：
+
+- `role_block`
+- `global_policy_block`
+- `scene_activation_block_template`
+- `reasoning_block`
+- `output_contract_block`
+- `user`
+
+结构示意：
+
+```yaml
+prompts:
+  preliminary:
+    role_block: |
+      You are a city-street visual inspection model for a robot-dog patrol backend.
+
+    global_policy_block: |
+      Standard categories:
+      ...
+
+    scene_activation_block_template: |
+      Current scene activation policy:
+      - camera_id: {camera_id}
+      - location: {location}
+      - scene_hint: {scene_hint}
+      - enabled_categories: {enabled_categories}
+      - disabled_categories: {disabled_categories}
+      - priority_categories: {priority_categories}
+      - location_constraints: {location_constraints}
+
+      Use rules:
+      - prioritize enabled_categories
+      - prioritize priority_categories first
+      - do not output disabled_categories as standard categories unless they should be treated as open_risk
+
+    reasoning_block: |
+      Always analyze the full environment before deciding the violation category.
+
+    output_contract_block: |
+      You must output JSON only, in this exact order:
+      ...
+
+    user: |
+      Analyze this inspection image under the configured scene policy and output the required JSON.
+```
+
+### 9.4 运行时配置结果
+
+运行时应由后端完成两次组合：
+
+1. `scene_policies` 解析成：
+   - `scene_activation_context`
+2. `prompts.preliminary.*_block` + `scene_activation_context`
+   - 组合成最终 `system prompt`
+
+最终 `VLM-1` 使用的是：
+
+- 动态 `system prompt`
+- 轻量 `user prompt`
+- `image_url`
 
 ## 10. 代码影响面
 
@@ -368,6 +819,11 @@ scene_policies:
 - 输入校验测试
 - API ingress 测试
 
+并且要同步收敛：
+
+- API 示例请求
+- API 失败响应中的上下文字段
+
 ### 10.2 领域层
 
 需要调整：
@@ -376,26 +832,51 @@ scene_policies:
 - `ViolationEvent`
 - `generate_event_id()`
 
+并建议新增：
+
+- `SceneActivationContext`
+- `SceneActivationPolicy`
+
 ### 10.3 prompt 层
 
 需要调整：
 
 - `ConfigurableInspectionPromptBuilder`
-- `VLM-1 user prompt` 模板变量
+- `VLM-1 system prompt` 结构化拼装逻辑
+- `scene_activation_block_template` 渲染逻辑
+
+这里的重点不再是“往 user prompt 里塞变量”，而是：
+
+- 先拼装 `system prompt`
+- 再附加轻量 `user prompt`
 
 ### 10.4 workflow 层
 
 需要增加：
 
 - `scene activation context` 构造逻辑
+- `camera_id + location` 到最终策略的解析调用
 
-建议不要把这个逻辑塞进 client 内部，而是在 workflow / bootstrap 附近完成，保持职责清晰。
+建议不要把这个逻辑塞进 client 内部，而是在 workflow / bootstrap 附近完成，保持职责清晰。  
+推荐新增一层类似：
+
+- `ScenePolicyResolver`
+- `PreliminaryPromptComposer`
 
 ### 10.5 配置层
 
 需要新增：
 
 - `scene_policies` 配置模型
+- 结构化 `preliminary prompt blocks` 配置模型
+
+### 10.6 测试层
+
+需要同步新增：
+
+- `scene policy resolver` 专项测试
+- `preliminary system prompt composer` 专项测试
+- 不同 `camera_id + location` 组合下的 prompt 快照测试
 
 ## 11. 兼容与迁移策略
 
@@ -422,8 +903,18 @@ scene_policies:
 1. 先改 `EventSeed` 和 API schema
 2. 再改 `event_id` 生成
 3. 再补 `scene_policies` 配置与读取
-4. 再调整 `VLM-1 prompt`
-5. 最后更新 fixtures / tests / README
+4. 再拆分 `prompts.preliminary` 为结构化 blocks
+5. 再实现 `SceneActivationPolicy` 解析
+6. 再实现 `VLM-1 system prompt` 动态拼装
+7. 最后更新 fixtures / tests / README
+
+### 11.3 迁移结果要求
+
+迁移完成后应保证：
+
+- 新版请求体不再依赖 `frame_id`
+- 当前场景组合的激活类别是可解释、可配置、可测试的
+- `VLM-1` 最终使用的 `system prompt` 能直接体现当前 `camera_id + location` 组合语义
 
 ## 12. 测试计划
 
@@ -444,20 +935,38 @@ scene_policies:
 - 不同 `location` 生成不同 `event_id`
 - 相同输入生成稳定 `event_id`
 
-### 12.3 `VLM-1` prompt 测试
+### 12.3 `SceneActivationPolicy` 测试
 
 新增覆盖：
 
-- `camera_id=left` 注入店铺类激活集合
-- `camera_id=front` 注入道路类激活集合
-- `location=水坊街` 注入片区约束
+- `front + 南山路` 命中 override
+- `left + 南山路` 命中店铺类 override
+- `right + 南山路` 命中与左相机一致的 override
+- 不存在 override 时正确回退到默认规则
 
-### 12.4 workflow 测试
+### 12.4 `VLM-1 system prompt` 组装测试
+
+新增覆盖：
+
+- `scene_activation_block` 是否正确拼装
+- `enabled_categories / disabled_categories / priority_categories / location_constraints` 是否全部进 `system prompt`
+- `front + 南山路` 与 `left + 南山路` 生成的最终 `system prompt` 明显不同
+
+### 12.5 `VLM-1` 处理测试
+
+新增覆盖：
+
+- 不同 `camera_id + location` 组合下发送给 VLM-1 的 `messages` 是否符合预期
+- `user prompt` 是否保持轻量
+- 图像是否继续通过 `image_url` 传递
+
+### 12.6 workflow 测试
 
 新增覆盖：
 
 - `scene_activation_context` 能正确传入 VLM-1
-- 左右相机不再默认启用全量道路类
+- 左右相机在 `南山路` 下不再默认启用全量道路类
+- 前相机在 `南山路` 下仍可启用除 `staff_not_wear_mask` 外的大部分类别
 
 ## 13. 推荐实施顺序
 
@@ -466,10 +975,12 @@ scene_policies:
 1. 输入 schema 变更
 2. `EventSeed` / `event_id` 变更
 3. 配置模型新增 `scene_policies`
-4. workflow 组装 `scene_activation_context`
-5. `VLM-1` prompt 模板注入
-6. 测试与 fixtures 更新
-7. README / 文档更新
+4. 配置模型新增 `prompts.preliminary.*_block`
+5. 实现 `SceneActivationPolicy` 解析
+6. workflow 组装 `scene_activation_context`
+7. 实现 `VLM-1 system prompt` 动态拼装
+8. 测试与 fixtures 更新
+9. README / 文档更新
 
 ## 14. 结论
 
