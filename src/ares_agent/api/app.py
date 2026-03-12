@@ -277,8 +277,10 @@ def create_app(
     async def mock_sam3_segment(_: dict[str, object]) -> dict[str, object]:
         return _load_fixture_json(app.state.app_config.mock_clients.segmentation_fixture)
 
-    @app.post("/v1/inspection-items")
-    async def ingest_inspection_item(request: InspectionIngestRequest) -> dict[str, object]:
+    @app.post("/v1/inspection-items", response_model=None)
+    async def ingest_inspection_item(
+        request: InspectionIngestRequest,
+    ) -> JSONResponse | dict[str, object]:
         seed = EventSeed.model_validate(request.model_dump())
         workflow_output = app.state.inspection_workflow.run(input=seed)
         if not _workflow_succeeded(workflow_output):
