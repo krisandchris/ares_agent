@@ -1,7 +1,7 @@
 import pytest
 
 import ares_agent.plugins.http_callback as http_callback
-from ares_agent.plugins.http_callback import HttpCallbackPlugin, _default_sender
+from ares_agent.plugins.http_callback import HttpCallbackPlugin, _default_sender, _parse_callback_response
 from ares_agent.services.feedback import build_preliminary_feedback, build_refined_feedback
 
 
@@ -207,3 +207,18 @@ def test_default_sender_passes_timeout_to_urlopen(monkeypatch: pytest.MonkeyPatc
     assert observed["timeout"] == 2.5
     assert result["status_code"] == 200
     assert result["backend_trace_id"] == "trace-id"
+
+
+def test_parse_callback_response_normalizes_typed_fields() -> None:
+    parsed = _parse_callback_response(
+        {
+            "status_code": "503",
+            "backend_trace_id": 123,
+            "error_message": RuntimeError("backend unavailable"),
+        }
+    )
+
+    assert parsed.status_code == 503
+    assert parsed.backend_trace_id == "123"
+    assert parsed.error_message == "backend unavailable"
+    assert parsed.retryable is True

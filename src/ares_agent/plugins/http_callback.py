@@ -5,13 +5,19 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, TypedDict, cast
 from urllib import request
 
 from pydantic import BaseModel
 
 
 Sender = Callable[[str, dict[str, str], dict[str, object]], dict[str, object]]
+
+
+class CallbackResponsePayload(TypedDict, total=False):
+    status_code: int | str
+    backend_trace_id: object
+    error_message: object
 
 
 @dataclass(frozen=True)
@@ -38,6 +44,22 @@ def _default_sender(
             "status_code": response.getcode(),
             "backend_trace_id": trace_id,
         }
+
+
+def _parse_callback_response(response: dict[str, object]) -> CallbackResult:
+    typed_response = cast(CallbackResponsePayload, response)
+    status_code = int(typed_response["status_code"])
+    backend_trace_id_raw = typed_response.get("backend_trace_id")
+    error_message_raw = typed_response.get("error_message")
+    backend_trace_id = str(backend_trace_id_raw) if backend_trace_id_raw is not None else None
+    error_message = str(error_message_raw) if error_message_raw is not None else None
+    return CallbackResult(
+        success=200 <= status_code < 300,
+        status_code=status_code,
+        backend_trace_id=backend_trace_id,
+        retryable=status_code >= 500,
+        error_message=error_message,
+    )
 
 
 class HttpCallbackPlugin:
@@ -76,14 +98,7 @@ class HttpCallbackPlugin:
         last_result: CallbackResult | None = None
         for attempt in range(1, self.max_attempts + 1):
             response = self.sender(self.endpoint, headers, payload)
-            status_code = int(response["status_code"])
-            last_result = CallbackResult(
-                success=200 <= status_code < 300,
-                status_code=status_code,
-                backend_trace_id=response.get("backend_trace_id"),
-                retryable=status_code >= 500,
-                error_message=response.get("error_message"),
-            )
+            last_result = _parse_callback_response(response)
             if last_result.success or not last_result.retryable or attempt == self.max_attempts:
                 return last_result
             time.sleep(self.backoff_ms / 1000)
