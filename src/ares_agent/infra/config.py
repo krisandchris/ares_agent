@@ -126,6 +126,37 @@ class AppConfig(BaseModel):
     model_clients: ModelClientSettings = ModelClientSettings()
     review: ReviewSettings = ReviewSettings()
 
+    @model_validator(mode="after")
+    def validate_scene_policy_category_references(self) -> "AppConfig":
+        if self.scene_policies is None or not self.category_registry:
+            return self
+
+        known_categories = set(self.category_registry)
+        unknown_categories: set[str] = set()
+
+        def collect_unknown(rule: SceneActivationRule) -> None:
+            for category in (
+                *rule.enabled_categories,
+                *rule.disabled_categories,
+                *rule.priority_categories,
+            ):
+                if category not in known_categories:
+                    unknown_categories.add(category)
+
+        for rule in self.scene_policies.camera_defaults.values():
+            collect_unknown(rule)
+        for rule in self.scene_policies.location_defaults.values():
+            collect_unknown(rule)
+        for location_overrides in self.scene_policies.overrides.values():
+            for rule in location_overrides.values():
+                collect_unknown(rule)
+
+        if unknown_categories:
+            categories = ", ".join(sorted(unknown_categories))
+            raise ValueError(f"Unknown categories referenced in scene_policies: {categories}")
+
+        return self
+
 
 def load_config(path: str | Path) -> AppConfig:
     """Load YAML configuration into a validated application config."""

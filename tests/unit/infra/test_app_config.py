@@ -108,6 +108,19 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
                 "    user: |",
                 "      JUDGE USER {category_code}",
                 "category_registry:",
+                "  motor_vehicle_illegal_parking:",
+                "    definition: vehicle occupies prohibited area",
+                "    common_objects:",
+                "      - motor_vehicle",
+                "    relation_focus:",
+                "      - vehicle_occupies_prohibited_area",
+                "  goods_blocking_road:",
+                "    definition: goods on sidewalk",
+                "    common_objects:",
+                "      - goods",
+                "      - sidewalk",
+                "    relation_focus:",
+                "      - obstruct_pedestrian_passage",
                 "  staff_not_wear_mask:",
                 "    definition: catering staff missing mask",
                 "    common_objects:",
@@ -166,4 +179,133 @@ def test_load_config_rejects_refined_without_preliminary_callback(tmp_path: Path
     )
 
     with pytest.raises(ValueError, match="send_refined requires send_preliminary"):
+        load_config(config_path)
+
+
+def test_load_config_rejects_unknown_enabled_category_in_scene_policy(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    segmentation_fixture = tmp_path / "sam.json"
+    segmentation_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {segmentation_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+                "scene_policies:",
+                "  camera_defaults:",
+                "    front:",
+                "      enabled_categories:",
+                "        - motor_vehicle_illegal_parking",
+                "        - not_a_real_category",
+                "      priority_categories:",
+                "        - motor_vehicle_illegal_parking",
+                "prompts:",
+                "  preliminary:",
+                "    role_block: |",
+                "      ROLE BLOCK",
+                "    scene_activation_block_template: |",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
+                "    reasoning_block: |",
+                "      REASONING BLOCK",
+                "    output_contract_block: |",
+                "      OUTPUT CONTRACT BLOCK",
+                "    user: |",
+                "      Analyze this inspection image.",
+                "  judge:",
+                "    system: |",
+                "      JUDGE SYSTEM",
+                "    user: |",
+                "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  motor_vehicle_illegal_parking:",
+                "    definition: vehicle occupies prohibited area",
+                "    common_objects:",
+                "      - motor_vehicle",
+                "    relation_focus:",
+                "      - vehicle_occupies_prohibited_area",
+                "open_risk_registry:",
+                "  guidance: |",
+                "    If obvious risk exists outside prioritized categories, output open_risk.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unknown categories referenced in scene_policies"):
+        load_config(config_path)
+
+
+def test_load_config_rejects_unknown_priority_category_in_scene_policy(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    segmentation_fixture = tmp_path / "sam.json"
+    segmentation_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {segmentation_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+                "scene_policies:",
+                "  camera_defaults:",
+                "    left:",
+                "      enabled_categories:",
+                "        - staff_not_wear_mask",
+                "      priority_categories:",
+                "        - ghost_category",
+                "prompts:",
+                "  preliminary:",
+                "    role_block: |",
+                "      ROLE BLOCK",
+                "    scene_activation_block_template: |",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
+                "    reasoning_block: |",
+                "      REASONING BLOCK",
+                "    output_contract_block: |",
+                "      OUTPUT CONTRACT BLOCK",
+                "    user: |",
+                "      Analyze this inspection image.",
+                "  judge:",
+                "    system: |",
+                "      JUDGE SYSTEM",
+                "    user: |",
+                "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  staff_not_wear_mask:",
+                "    definition: catering staff missing mask",
+                "    common_objects:",
+                "      - staff",
+                "    relation_focus:",
+                "      - staff_without_mask",
+                "open_risk_registry:",
+                "  guidance: |",
+                "    If obvious risk exists outside prioritized categories, output open_risk.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    with pytest.raises(ValueError, match="Unknown categories referenced in scene_policies"):
         load_config(config_path)
