@@ -1,0 +1,242 @@
+agent:
+  service_name: street-inspection-agent
+
+orchestrator:
+  enable_async_refine: true
+
+callback:
+  plugin: http_callback
+  endpoint: https://backend.example/api/v1/events/callback
+  auth_token:
+  auth_token_env:
+  timeout_ms: 3000
+  retry:
+    max_attempts: 3
+    backoff_ms: 1000
+  send_preliminary: true
+  send_refined: true
+
+mock_clients:
+  preliminary_fixture: ../fixtures/mock_vlm_preliminary/road_occupying_vendor.json
+  segmentation_fixture: ../fixtures/mock_sam3/road_occupying_vendor.json
+  evidence_judge_fixture: ../fixtures/mock_vlm_judge/road_occupying_vendor.json
+
+scene_policies:
+  camera_defaults:
+    front:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      priority_categories:
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - goods_blocking_road
+      scene_hint: road-facing camera
+    left:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+    right:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+  location_defaults:
+    南山路:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      location_constraints:
+        - focus on roadside, sidewalk, storefront frontage, and pedestrian passage
+    水坊街:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      location_constraints:
+        - focus on storefront frontage, sidewalk occupation, and outdoor charging behavior
+  overrides:
+    南山路:
+      front:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - vagrants_blocking_roadway
+          - begging_blocking_roadway
+          - off_leash_dog_nuisance
+        disabled_categories:
+          - staff_not_wear_mask
+        priority_categories:
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - goods_blocking_road
+      left:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+      right:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+
+model_clients:
+  mode: mock
+  preliminary:
+    base_url: http://127.0.0.1:30000
+    endpoint: /mock/vlm/preliminary
+    model_name: inspection-vlm
+    timeout_ms: 12000
+    temperature: 0.1
+    max_tokens: 1024
+  judge:
+    base_url: http://127.0.0.1:30001
+    endpoint: /mock/vlm/judge
+    model_name: inspection-vlm
+    timeout_ms: 15000
+    temperature: 0.0
+    max_tokens: 1024
+  sam3:
+    base_url: http://127.0.0.1:8001
+    endpoint: /mock/sam3/segment
+    timeout_ms: 10000
+
+prompts:
+  preliminary:
+    role_block: |
+      You are a city-street visual inspection model for a robot-dog patrol backend.
+      Your task is to analyze one inspection image from a robot-dog patrol and determine whether a violation or risk event exists.
+    global_policy_block: |
+      Standard categories:
+      - road_occupying_vendor: stall, canopy, shelf, goods, storefront boundary, sidewalk, roadway
+      - goods_blocking_road: goods, materials, signboard, trash, storefront entrance, sidewalk, pedestrian passage
+      - unauthorized_electrical_wiring: wire, charger, electric vehicle, outdoor connection, storefront power source
+      - motor_vehicle_illegal_parking: motor vehicle, motorcycle, sidewalk, blind path, bus stop, parking line, unmarked area
+      - nonmotor_vehicle_illegal_parking: e-bike, bicycle, tricycle, sidewalk, roadway, blind path, unattended state
+      - vagrants_blocking_roadway: disheveled person, sitting, lying, roadside, road center
+      - begging_blocking_roadway: disheveled person, begging bowl, begging sign, roadside, road center
+      - off_leash_dog_nuisance: pedestrian, pet dog, leash, unleashed state
+      - staff_not_wear_mask: catering storefront, staff, mask, counter, food operation scene
+
+      Open-risk examples include but are not limited to:
+      - fire_or_smoke
+      - fallen_tree_or_branch
+      - flooding_or_water_accumulation
+      - damaged_manhole_or_road_surface
+      - exposed_infrastructure
+      - collapsed_barrier_or_fence
+      - traffic_accident_scene
+      - construction_hazard
+      - large_debris_on_road
+      - sanitation_emergency
+    scene_activation_block_template: |
+      Current scene activation policy:
+      - camera_id: {camera_id}
+      - location: {location}
+      - scene_hint: {scene_hint}
+      - enabled_categories: {enabled_categories}
+      - disabled_categories: {disabled_categories}
+      - priority_categories: {priority_categories}
+      - location_constraints: {location_constraints}
+
+      Use rules:
+      - prioritize enabled_categories
+      - prioritize priority_categories first
+      - do not output disabled_categories as standard categories unless they should be treated as open_risk
+    reasoning_block: |
+      Always analyze the full environment before deciding the violation category.
+      Do not judge from a single object alone. Use spatial relationships between objects and environment.
+      segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets.
+      If the image is occluded, blurry, distant, or incomplete, mention that in the analysis and lower confidence.
+      If no violation or risk exists, output violation_category="none".
+    output_contract_block: |
+      You must output JSON only, in this exact order:
+      1. environment_analysis
+      2. scene_elements
+      3. evidence_reasoning
+      4. segmentation_targets
+      5. relation_hint
+      6. violation_category
+      7. open_risk_type
+      8. confidence
+
+      Field rules:
+      - environment_analysis: concise but complete whole-scene analysis
+      - scene_elements: key elements relevant to the judgment
+      - evidence_reasoning: why the visible evidence suggests a violation or risk
+      - segmentation_targets: string list for downstream SAM3
+      - relation_hint: short phrase describing the critical object/environment relationship
+      - violation_category: one of the standard categories, open_risk, or none
+      - open_risk_type: non-empty only when violation_category=open_risk
+      - confidence: float in [0, 1]
+
+      Never output markdown. Never output extra explanation outside JSON.
+    user: |
+      Analyze this inspection image under the configured scene policy and output the required JSON.
+  judge:
+    system: |
+      You are the second-stage evidence-judgment model in a city-street visual inspection pipeline.
+      Your role is not to freely reclassify the whole image. Your role is to judge whether the current candidate violation category is supported by the SAM3 segmentation result image and the provided segmentation semantics.
+
+      Judgment priorities:
+      1. Whether the candidate violation category is supported.
+      2. Whether the provided mask labels cover the critical judgment objects.
+      3. Whether the relation hint is visually supported by the segmentation result image.
+      4. Whether the evidence is sufficient for archival.
+      5. If the evidence is insufficient or contradictory, explain why.
+
+      You must focus on:
+      - category_code
+      - mask_labels
+      - relation_hint
+      - evidence_basis_summary
+      - the segmentation overlay image
+
+      Do not rely on unrelated metadata. Do not invent new violation categories unless explicitly required by the input contract.
+      Output must remain structured and evidence-grounded.
+    user: |
+      category_code={category_code}
+      mask_labels={mask_labels}
+      relation_hint={relation_hint}
+      evidence_basis_summary={evidence_basis_summary}
+
+review:
+  enable_manual_review: true
