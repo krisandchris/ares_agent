@@ -6,6 +6,12 @@ Agno-based urban street visual inspection backend agent.
 
 This repository is currently a mocked closed-loop demo, not a production-ready backend.
 
+Current minimum convergence boundary:
+
+- stable `v1/inspection-items` contract
+- stable `camera_id + location` scene-aware `VLM-1` prompting
+- stable `VLM-1 -> SAM3 -> VLM-2 -> callback -> event_store` minimum chain
+
 Implemented today:
 
 - FastAPI ingress
@@ -30,6 +36,7 @@ Not implemented yet:
 - [街道巡检后端 Agent 设计](./docs/plans/2026-03-09-street-inspection-agent-design.md)
 - [框架选型记录](./docs/plans/2026-03-09-agent-framework-selection-among-agentscope-dify-agno.md)
 - [MVP 收口报告](./docs/plans/2026-03-11-mvp-closure-report.md)
+- [MVP 最小收敛边界](./docs/plans/2026-03-12-mvp-minimum-convergence-boundary.md)
 - [生产化下一步规划](./docs/plans/2026-03-11-productionization-next-steps-plan.md)
 - [`inspection-items` camera/location feature 方案](./docs/plans/2026-03-12-inspection-items-camera-location-feature-plan.md)
 
