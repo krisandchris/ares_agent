@@ -95,11 +95,30 @@ uv run uvicorn ares_agent.api.app:app --host 0.0.0.0 --port 8000
 `orchestrator.chain_mode` in config controls the runtime chain:
 
 - `full`
-  - `VLM-1 -> SAM3 -> VLM-2 -> callback -> event_store`
+  - synchronously runs `VLM-1 -> SAM3 -> VLM-2`
+  - HTTP returns `stage=refined`
 - `vlm1_only`
   - only runs `VLM-1`
-  - returns preliminary-stage payload
+  - HTTP returns `stage=preliminary`
   - requires `callback.send_refined=false`
+
+`callback.send_preliminary` and `callback.send_refined` only control whether stage results are sent to the backend management service.
+They do not change the HTTP response stage of `/v1/inspection-items`.
+
+Current callback/return behavior matrix:
+
+| `chain_mode` | `send_preliminary` | `send_refined` | backend callback | HTTP response |
+|---|---:|---:|---|---|
+| `vlm1_only` | `true` | `false` | sends `preliminary` | `stage=preliminary` |
+| `vlm1_only` | `false` | `false` | sends nothing | `stage=preliminary` |
+| `full` | `true` | `true` | sends `preliminary` + `refined` | `stage=refined` |
+| `full` | `true` | `false` | sends `preliminary` only | `stage=refined` |
+| `full` | `false` | `false` | sends nothing | `stage=refined` |
+
+Illegal configuration:
+
+- `send_refined=true` and `send_preliminary=false`
+- `chain_mode=vlm1_only` and `send_refined=true`
 
 For MinIO object storage, provide `image_uri` as an `http(s)` object URL.
 That URL is passed through to `VLM-1` unchanged in service mode.
