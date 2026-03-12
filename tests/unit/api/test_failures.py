@@ -45,7 +45,8 @@ def test_post_ingestion_returns_failed_payload_when_callback_fails() -> None:
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-001.jpg",
-            "frame_id": "frame-001",
+            "camera_id": "front",
+            "location": "南山路",
             "device_id": "dog-17",
             "task_id": "patrol-sh-001",
             "occur_time": "2026-03-09T10:00:00Z",
@@ -84,7 +85,8 @@ def test_post_ingestion_returns_failed_payload_when_fixture_is_missing() -> None
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-001.jpg",
-            "frame_id": "frame-001",
+            "camera_id": "front",
+            "location": "南山路",
             "device_id": "dog-17",
             "task_id": "patrol-sh-001",
             "occur_time": "2026-03-09T10:00:00Z",
@@ -132,7 +134,8 @@ def test_post_ingestion_returns_failed_event_when_segmentation_status_failed(tmp
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-001.jpg",
-            "frame_id": "frame-001",
+            "camera_id": "front",
+            "location": "南山路",
             "device_id": "dog-17",
             "task_id": "patrol-sh-001",
             "occur_time": "2026-03-09T10:00:00Z",

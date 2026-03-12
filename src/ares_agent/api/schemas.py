@@ -11,7 +11,8 @@ class InspectionIngestRequest(BaseModel):
     """HTTP request contract for one inspection input."""
 
     image_uri: str
-    frame_id: str
+    camera_id: str
+    location: str
     device_id: str
     task_id: str
     occur_time: str
@@ -29,7 +30,8 @@ class EventFailureResponse(BaseModel):
     """Structured failure payload returned by the HTTP ingress."""
 
     event_id: str
-    frame_id: str
+    camera_id: str
+    location: str
     stage: str
     failed_step: str | None = None
     error_type: str

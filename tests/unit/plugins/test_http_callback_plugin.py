@@ -19,7 +19,8 @@ def test_http_callback_plugin_sends_serialized_preliminary_payload() -> None:
     )
     feedback = build_preliminary_feedback(
         event_id="evt_123",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         violation_category="road_occupying_vendor",
         open_risk_type="",
         confidence=0.91,
@@ -37,7 +38,8 @@ def test_http_callback_plugin_sends_serialized_preliminary_payload() -> None:
             },
             {
                 "event_id": "evt_123",
-                "frame_id": "frame-001",
+                "camera_id": "front",
+                "location": "南山路",
                 "stage": "preliminary",
                 "violation_category": "road_occupying_vendor",
                 "open_risk_type": "",
@@ -64,7 +66,8 @@ def test_http_callback_plugin_sends_serialized_refined_payload() -> None:
     )
     feedback = build_refined_feedback(
         event_id="evt_123",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         final_category="road_occupying_vendor",
         final_confidence=0.96,
         archive_readiness=True,
@@ -80,7 +83,8 @@ def test_http_callback_plugin_sends_serialized_refined_payload() -> None:
             {"Content-Type": "application/json"},
             {
                 "event_id": "evt_123",
-                "frame_id": "frame-001",
+                "camera_id": "front",
+                "location": "南山路",
                 "stage": "refined",
                 "final_category": "road_occupying_vendor",
                 "final_confidence": 0.96,
@@ -115,7 +119,8 @@ def test_http_callback_plugin_retries_retryable_failures_until_success(monkeypat
     )
     feedback = build_preliminary_feedback(
         event_id="evt_123",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         violation_category="road_occupying_vendor",
         open_risk_type="",
         confidence=0.91,
@@ -149,7 +154,8 @@ def test_http_callback_plugin_returns_failed_result_after_retry_exhaustion(monke
     )
     feedback = build_refined_feedback(
         event_id="evt_123",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         final_category="road_occupying_vendor",
         final_confidence=0.96,
         archive_readiness=True,

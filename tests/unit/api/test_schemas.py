@@ -4,14 +4,16 @@ from ares_agent.api.schemas import EventFailureResponse, EventQueryResponse, Ins
 def test_inspection_ingest_request_requires_image_uri_and_metadata() -> None:
     request = InspectionIngestRequest(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",
     )
 
     assert request.image_uri == "s3://street/frame-001.jpg"
-    assert request.frame_id == "frame-001"
+    assert request.camera_id == "front"
+    assert request.location == "南山路"
 
 
 def test_event_query_response_wraps_latest_event_payload() -> None:
@@ -29,7 +31,8 @@ def test_event_query_response_wraps_latest_event_payload() -> None:
 def test_event_failure_response_tracks_failed_stage_and_reason() -> None:
     response = EventFailureResponse(
         event_id="evt_123",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         stage="failed",
         failed_step="preliminary",
         error_type="RuntimeError",

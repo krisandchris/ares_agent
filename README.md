@@ -85,7 +85,8 @@ curl -X POST http://127.0.0.1:8000/v1/inspection-items \
   -H "Content-Type: application/json" \
   -d '{
     "image_uri": "s3://street/frame-001.jpg",
-    "frame_id": "frame-001",
+    "camera_id": "front",
+    "location": "南山路",
     "device_id": "dog-17",
     "task_id": "patrol-sh-001",
     "occur_time": "2026-03-09T10:00:00Z"

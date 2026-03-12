@@ -73,7 +73,8 @@ def test_http_model_clients_parse_local_stub_responses(tmp_path: Path) -> None:
     prelim = prelim_client.analyze(
         EventSeed(
             image_uri="s3://street/frame-003.jpg",
-            frame_id="frame-003",
+            camera_id="front",
+            location="南山路",
             device_id="dog-21",
             task_id="patrol-sh-005",
             occur_time="2026-03-09T10:40:00Z",

@@ -84,7 +84,8 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
     output = workflow.run(
         input=EventSeed(
             image_uri="s3://street/frame-005.jpg",
-            frame_id="frame-005",
+            camera_id="front",
+            location="南山路",
             device_id="dog-22",
             task_id="patrol-sh-006",
             occur_time="2026-03-09T10:50:00Z",

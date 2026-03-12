@@ -9,7 +9,8 @@ from pydantic import BaseModel, Field
 
 class PreliminaryEventFeedback(BaseModel):
     event_id: str
-    frame_id: str
+    camera_id: str
+    location: str
     stage: Literal["preliminary"] = "preliminary"
     violation_category: str
     open_risk_type: str
@@ -19,7 +20,8 @@ class PreliminaryEventFeedback(BaseModel):
 
 class RefinedEventFeedback(BaseModel):
     event_id: str
-    frame_id: str
+    camera_id: str
+    location: str
     stage: Literal["refined"] = "refined"
     final_category: str
     final_confidence: float = Field(ge=0.0, le=1.0)
@@ -31,7 +33,8 @@ class RefinedEventFeedback(BaseModel):
 def build_preliminary_feedback(
     *,
     event_id: str,
-    frame_id: str,
+    camera_id: str,
+    location: str,
     violation_category: str,
     open_risk_type: str,
     confidence: float,
@@ -40,7 +43,8 @@ def build_preliminary_feedback(
     """Create the fast-path payload shared with the management service."""
     return PreliminaryEventFeedback(
         event_id=event_id,
-        frame_id=frame_id,
+        camera_id=camera_id,
+        location=location,
         violation_category=violation_category,
         open_risk_type=open_risk_type,
         confidence=confidence,
@@ -51,7 +55,8 @@ def build_preliminary_feedback(
 def build_refined_feedback(
     *,
     event_id: str,
-    frame_id: str,
+    camera_id: str,
+    location: str,
     final_category: str,
     final_confidence: float,
     archive_readiness: bool,
@@ -61,7 +66,8 @@ def build_refined_feedback(
     """Create the refined payload that updates the same logical event."""
     return RefinedEventFeedback(
         event_id=event_id,
-        frame_id=frame_id,
+        camera_id=camera_id,
+        location=location,
         final_category=final_category,
         final_confidence=final_confidence,
         archive_readiness=archive_readiness,

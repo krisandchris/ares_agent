@@ -39,7 +39,8 @@ def test_preliminary_http_client_uses_prompt_builder_messages() -> None:
     client.analyze(
         EventSeed(
             image_uri="s3://street/frame-011.jpg",
-            frame_id="frame-011",
+            camera_id="front",
+            location="南山路",
             device_id="dog-31",
             task_id="patrol-sh-011",
             occur_time="2026-03-09T11:10:00Z",

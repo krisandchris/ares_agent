@@ -45,7 +45,8 @@ def test_post_ingestion_runs_mock_workflow_and_returns_shared_event_payload() ->
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-001.jpg",
-            "frame_id": "frame-001",
+            "camera_id": "front",
+            "location": "南山路",
             "device_id": "dog-17",
             "task_id": "patrol-sh-001",
             "occur_time": "2026-03-09T10:00:00Z",
@@ -72,7 +73,7 @@ def test_post_ingestion_rejects_invalid_request_body() -> None:
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-001.jpg",
-            "frame_id": "frame-001",
+            "camera_id": "front",
             "device_id": "dog-17",
         },
     )

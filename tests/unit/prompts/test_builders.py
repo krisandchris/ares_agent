@@ -7,7 +7,8 @@ def test_default_prompt_builder_builds_preliminary_messages_from_event_seed() ->
     builder = DefaultInspectionPromptBuilder()
     seed = EventSeed(
         image_uri="s3://street/frame-010.jpg",
-        frame_id="frame-010",
+        camera_id="front",
+        location="南山路",
         device_id="dog-30",
         task_id="patrol-sh-010",
         occur_time="2026-03-09T11:00:00Z",

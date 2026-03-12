@@ -61,7 +61,8 @@ def test_http_flow_success_and_query_roundtrip(tmp_path: Path) -> None:
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-003.jpg",
-            "frame_id": "frame-003",
+            "camera_id": "front",
+            "location": "南山路",
             "device_id": "dog-19",
             "task_id": "patrol-sh-003",
             "occur_time": "2026-03-09T10:20:00Z",
@@ -131,7 +132,8 @@ def test_http_flow_failure_and_query_roundtrip(tmp_path: Path) -> None:
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-004.jpg",
-            "frame_id": "frame-004",
+            "camera_id": "left",
+            "location": "水坊街",
             "device_id": "dog-20",
             "task_id": "patrol-sh-004",
             "occur_time": "2026-03-09T10:30:00Z",

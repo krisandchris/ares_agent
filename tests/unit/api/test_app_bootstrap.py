@@ -89,7 +89,8 @@ def test_create_app_bootstraps_workflow_from_config_and_fixture_paths(tmp_path: 
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-002.jpg",
-            "frame_id": "frame-002",
+            "camera_id": "left",
+            "location": "水坊街",
             "device_id": "dog-18",
             "task_id": "patrol-sh-002",
             "occur_time": "2026-03-09T10:10:00Z",

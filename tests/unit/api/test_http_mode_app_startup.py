@@ -114,7 +114,8 @@ def test_create_app_runs_full_workflow_in_http_mode_with_configured_clients(tmp_
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-100.jpg",
-            "frame_id": "frame-100",
+            "camera_id": "right",
+            "location": "南山路",
             "device_id": "dog-99",
             "task_id": "patrol-sh-100",
             "occur_time": "2026-03-09T12:00:00Z",

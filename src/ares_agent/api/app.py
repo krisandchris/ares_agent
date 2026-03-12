@@ -254,7 +254,8 @@ def _build_failure_payload(seed: EventSeed, workflow_output: object) -> dict[str
     error_type, error_message = _parse_error(error_text)
     return EventFailureResponse(
         event_id=generate_event_id(seed),
-        frame_id=seed.frame_id,
+        camera_id=seed.camera_id,
+        location=seed.location,
         stage="failed",
         failed_step=getattr(first_failed, "step_name", None),
         error_type=error_type,

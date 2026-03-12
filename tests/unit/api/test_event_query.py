@@ -37,7 +37,8 @@ def test_get_event_by_id_returns_latest_stored_result() -> None:
         "/v1/inspection-items",
         json={
             "image_uri": "s3://street/frame-001.jpg",
-            "frame_id": "frame-001",
+            "camera_id": "front",
+            "location": "南山路",
             "device_id": "dog-17",
             "task_id": "patrol-sh-001",
             "occur_time": "2026-03-09T10:00:00Z",

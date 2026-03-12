@@ -40,7 +40,8 @@ def test_vlm1_client_parses_standard_violation_result() -> None:
     result = client.analyze(
         EventSeed(
             image_uri="s3://street/frame-101.jpg",
-            frame_id="frame-101",
+            camera_id="front",
+            location="南山路",
             device_id="dog-31",
             task_id="patrol-sh-101",
             occur_time="2026-03-10T09:00:00Z",
@@ -83,7 +84,8 @@ def test_vlm1_client_parses_open_risk_result() -> None:
     result = client.analyze(
         EventSeed(
             image_uri="s3://street/frame-102.jpg",
-            frame_id="frame-102",
+            camera_id="front",
+            location="南山路",
             device_id="dog-32",
             task_id="patrol-sh-102",
             occur_time="2026-03-10T09:05:00Z",
@@ -125,7 +127,8 @@ def test_vlm1_client_parses_none_result() -> None:
     result = client.analyze(
         EventSeed(
             image_uri="s3://street/frame-103.jpg",
-            frame_id="frame-103",
+            camera_id="left",
+            location="水坊街",
             device_id="dog-33",
             task_id="patrol-sh-103",
             occur_time="2026-03-10T09:10:00Z",
@@ -166,7 +169,8 @@ def test_vlm1_client_rejects_missing_required_fields() -> None:
         client.analyze(
             EventSeed(
                 image_uri="s3://street/frame-104.jpg",
-                frame_id="frame-104",
+                camera_id="right",
+                location="南山路",
                 device_id="dog-34",
                 task_id="patrol-sh-104",
                 occur_time="2026-03-10T09:15:00Z",

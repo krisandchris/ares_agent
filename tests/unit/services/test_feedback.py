@@ -5,7 +5,8 @@ from ares_agent.services.feedback import build_preliminary_feedback, build_refin
 def test_refined_feedback_reuses_preliminary_event_id() -> None:
     seed = EventSeed(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",
@@ -14,7 +15,8 @@ def test_refined_feedback_reuses_preliminary_event_id() -> None:
 
     preliminary = build_preliminary_feedback(
         event_id=event_id,
-        frame_id=seed.frame_id,
+        camera_id=seed.camera_id,
+        location=seed.location,
         violation_category="road_occupying_vendor",
         open_risk_type="",
         confidence=0.91,
@@ -23,7 +25,8 @@ def test_refined_feedback_reuses_preliminary_event_id() -> None:
 
     refined = build_refined_feedback(
         event_id=event_id,
-        frame_id=seed.frame_id,
+        camera_id=seed.camera_id,
+        location=seed.location,
         final_category="road_occupying_vendor",
         final_confidence=0.96,
         archive_readiness=True,

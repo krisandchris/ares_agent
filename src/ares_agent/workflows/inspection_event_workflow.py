@@ -156,7 +156,8 @@ def _preliminary_step_factory(
             preliminary = preliminary_client.analyze(seed)
             feedback = build_preliminary_feedback(
                 event_id=event_id,
-                frame_id=seed.frame_id,
+                camera_id=seed.camera_id,
+                location=seed.location,
                 violation_category=preliminary.violation_category,
                 open_risk_type=preliminary.open_risk_type,
                 confidence=preliminary.confidence,
@@ -237,7 +238,8 @@ def _evidence_judge_step_factory(
             )
             refined_feedback = build_refined_feedback(
                 event_id=event_id,
-                frame_id=segmentation_content["frame_seed"]["frame_id"],
+                camera_id=segmentation_content["frame_seed"]["camera_id"],
+                location=segmentation_content["frame_seed"]["location"],
                 final_category=judgment.final_category,
                 final_confidence=judgment.final_confidence,
                 archive_readiness=judgment.archive_readiness,

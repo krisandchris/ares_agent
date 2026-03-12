@@ -15,7 +15,7 @@ class FakePreliminaryClient:
         self.calls = calls
 
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
-        self.calls.append(f"preliminary:{seed.frame_id}")
+        self.calls.append(f"preliminary:{seed.camera_id}:{seed.location}")
         return PreliminaryResult(
             environment_analysis="street storefront scene with sidewalk occupation",
             scene_elements=["storefront", "stall", "sidewalk"],
@@ -116,7 +116,8 @@ def test_inspection_workflow_runs_two_callbacks_with_shared_event_id() -> None:
     callback_payloads: list[object] = []
     seed = EventSeed(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",
@@ -132,7 +133,7 @@ def test_inspection_workflow_runs_two_callbacks_with_shared_event_id() -> None:
     output = workflow.run(input=seed)
 
     assert order == [
-        "preliminary:frame-001",
+        "preliminary:front:南山路",
         "segmentation:s3://street/frame-001.jpg:stall,storefront_boundary,sidewalk_or_roadway",
         f"judge:{callback_payloads[0].event_id}:road_occupying_vendor",
     ]
@@ -148,7 +149,8 @@ def test_inspection_workflow_passes_same_event_id_into_refined_stage() -> None:
     callback_payloads: list[object] = []
     seed = EventSeed(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",
@@ -174,7 +176,8 @@ def test_inspection_workflow_stops_before_judge_when_segmentation_failed() -> No
     callback_payloads: list[object] = []
     seed = EventSeed(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",
@@ -190,7 +193,7 @@ def test_inspection_workflow_stops_before_judge_when_segmentation_failed() -> No
     output = workflow.run(input=seed)
 
     assert order == [
-        "preliminary:frame-001",
+        "preliminary:front:南山路",
         "segmentation_failed:s3://street/frame-001.jpg:stall,storefront_boundary,sidewalk_or_roadway",
     ]
     assert len(callback_payloads) == 1
@@ -204,7 +207,8 @@ def test_inspection_workflow_can_skip_refined_callback_via_runtime_config() -> N
     callback_payloads: list[object] = []
     seed = EventSeed(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",
@@ -228,7 +232,8 @@ def test_inspection_workflow_can_skip_all_callbacks_via_runtime_config() -> None
     callback_payloads: list[object] = []
     seed = EventSeed(
         image_uri="s3://street/frame-001.jpg",
-        frame_id="frame-001",
+        camera_id="front",
+        location="南山路",
         device_id="dog-17",
         task_id="patrol-sh-001",
         occur_time="2026-03-09T10:00:00Z",

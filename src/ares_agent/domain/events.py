@@ -13,7 +13,8 @@ class EventSeed(BaseModel):
     model_config = ConfigDict(frozen=True)
 
     image_uri: str
-    frame_id: str
+    camera_id: str
+    location: str
     device_id: str
     task_id: str
     occur_time: str
@@ -23,13 +24,14 @@ class ViolationEvent(BaseModel):
     """Stable event envelope shared by preliminary and refined stages."""
 
     event_id: str
-    frame_id: str
+    camera_id: str
+    location: str
     stage: str
     event_version: int = Field(default=1, ge=1)
 
 
 def generate_event_id(seed: EventSeed) -> str:
     """Generate a stable event id so sync and async chains share one key."""
-    raw = f"{seed.frame_id}|{seed.device_id}|{seed.task_id}|{seed.occur_time}"
+    raw = f"{seed.image_uri}|{seed.camera_id}|{seed.location}|{seed.device_id}|{seed.task_id}|{seed.occur_time}"
     digest = sha256(raw.encode("utf-8")).hexdigest()[:24]
     return f"evt_{digest}"
