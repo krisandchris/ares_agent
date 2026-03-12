@@ -3,10 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import mimetypes
 import json
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
 
 from ares_agent.api.app import _build_prompt_builder_from_config
 from ares_agent.domain.events import EventSeed, generate_event_id
@@ -50,7 +53,11 @@ def run_vlm1_preliminary_test(
                 )
             }
         )
-    resolved_image_uri = _resolve_input_image_uri(image_uri=image_uri, uploaded_image_path=uploaded_image_path)
+    resolved_image_uri = _resolve_input_image_uri(
+        image_uri=image_uri,
+        uploaded_image_path=uploaded_image_path,
+        mode=config.model_clients.mode,
+    )
     prompt_builder = _build_prompt_builder_from_config(config)
     seed = EventSeed(
         image_uri=resolved_image_uri,
@@ -211,10 +218,29 @@ def _extract_user_text(messages: list[dict[str, Any]]) -> str:
     return ""
 
 
-def _resolve_input_image_uri(*, image_uri: str, uploaded_image_path: str | Path | None) -> str:
+def _resolve_input_image_uri(
+    *,
+    image_uri: str,
+    uploaded_image_path: str | Path | None,
+    mode: str,
+) -> str:
     if uploaded_image_path:
-        return Path(uploaded_image_path).resolve().as_uri()
+        path = Path(uploaded_image_path).resolve()
+        if mode == "http":
+            return _file_to_data_url(path)
+        return path.as_uri()
+    if mode == "http":
+        scheme = urlparse(image_uri).scheme.lower()
+        if scheme not in {"http", "https", "data"}:
+            raise ValueError("HTTP mode requires image_uri to use http, https, or data URL")
     return image_uri
+
+
+def _file_to_data_url(path: Path) -> str:
+    mime_type, _ = mimetypes.guess_type(path.name)
+    mime = mime_type or "application/octet-stream"
+    encoded = base64.b64encode(path.read_bytes()).decode("ascii")
+    return f"data:{mime};base64,{encoded}"
 
 
 def _build_http_endpoint(base_url: str, endpoint: str) -> str:

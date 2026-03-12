@@ -97,9 +97,14 @@ It does not enter the main `SAM3 -> VLM-2 -> callback` workflow.
 
 Tester extras:
 
-- upload a local image and automatically convert it to a `file://` URI
+- upload a local image and automatically convert it to a transport-safe URI
 - switch between `mock` and `http` mode per run
 - inspect the final `messages` JSON sent to `VLM-1`
+
+HTTP-mode note:
+
+- uploaded local images are converted to `data:` URLs before sending to the VLM service
+- raw `s3://` or `file://` image URIs are rejected in HTTP mode unless you provide an `http(s)` or `data:` URL
 
 ## Example Request
 
