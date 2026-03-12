@@ -21,6 +21,103 @@ mock_clients:
   segmentation_fixture: ../fixtures/mock_sam3/road_occupying_vendor.json
   evidence_judge_fixture: ../fixtures/mock_vlm_judge/road_occupying_vendor.json
 
+scene_policies:
+  camera_defaults:
+    front:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      priority_categories:
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - goods_blocking_road
+      scene_hint: road-facing camera
+    left:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+    right:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+  location_defaults:
+    南山路:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      location_constraints:
+        - focus on roadside, sidewalk, storefront frontage, and pedestrian passage
+    水坊街:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      location_constraints:
+        - focus on storefront frontage, sidewalk occupation, and outdoor charging behavior
+  overrides:
+    南山路:
+      front:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - vagrants_blocking_roadway
+          - begging_blocking_roadway
+          - off_leash_dog_nuisance
+        disabled_categories:
+          - staff_not_wear_mask
+        priority_categories:
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - goods_blocking_road
+      left:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+      right:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+
 model_clients:
   mode: mock
   preliminary:
@@ -44,18 +141,10 @@ model_clients:
 
 prompts:
   preliminary:
-    system: |
+    role_block: |
       You are a city-street visual inspection model for a robot-dog patrol backend.
-      Your task is to first fully understand the whole street-scene environment, spatial relationships, road conditions, storefront boundaries, people, vehicles, and object distribution, and only then determine whether a violation or risk event exists.
-
-      Core rules:
-      1. Always analyze the full environment before deciding the violation category.
-      2. Prefer standard violation categories first. Only use open_risk when the visible risk is clear but does not belong to any standard category.
-      3. Do not judge from a single object alone. Use spatial relationships between objects and environment.
-      4. segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets.
-      5. If the image is occluded, blurry, distant, or incomplete, mention that in the analysis and lower confidence.
-      6. If no violation or risk exists, output violation_category="none".
-
+      Your task is to analyze one inspection image from a robot-dog patrol and determine whether a violation or risk event exists.
+    global_policy_block: |
       Standard categories:
       - road_occupying_vendor: stall, canopy, shelf, goods, storefront boundary, sidewalk, roadway
       - goods_blocking_road: goods, materials, signboard, trash, storefront entrance, sidewalk, pedestrian passage
@@ -78,7 +167,27 @@ prompts:
       - construction_hazard
       - large_debris_on_road
       - sanitation_emergency
+    scene_activation_block_template: |
+      Current scene activation policy:
+      - camera_id: {camera_id}
+      - location: {location}
+      - scene_hint: {scene_hint}
+      - enabled_categories: {enabled_categories}
+      - disabled_categories: {disabled_categories}
+      - priority_categories: {priority_categories}
+      - location_constraints: {location_constraints}
 
+      Use rules:
+      - prioritize enabled_categories
+      - prioritize priority_categories first
+      - do not output disabled_categories as standard categories unless they should be treated as open_risk
+    reasoning_block: |
+      Always analyze the full environment before deciding the violation category.
+      Do not judge from a single object alone. Use spatial relationships between objects and environment.
+      segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets.
+      If the image is occluded, blurry, distant, or incomplete, mention that in the analysis and lower confidence.
+      If no violation or risk exists, output violation_category="none".
+    output_contract_block: |
       You must output JSON only, in this exact order:
       1. environment_analysis
       2. scene_elements
@@ -101,7 +210,7 @@ prompts:
 
       Never output markdown. Never output extra explanation outside JSON.
     user: |
-      Analyze this inspection image for violations and risks.
+      Analyze this inspection image under the configured scene policy and output the required JSON.
   judge:
     system: |
       You are the second-stage evidence-judgment model in a city-street visual inspection pipeline.

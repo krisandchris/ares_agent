@@ -149,7 +149,13 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
         model_name="inspection-vlm",
         requester=fake_requester,
         prompt_builder=ConfigurableInspectionPromptBuilder(
-            preliminary_system_template="You are a custom preliminary model.",
+            preliminary_role_block="ROLE BLOCK",
+            preliminary_global_policy_block="GLOBAL BLOCK",
+            preliminary_scene_activation_block_template=(
+                "camera_id={camera_id}; location={location}; enabled_categories={enabled_categories}"
+            ),
+            preliminary_reasoning_block="REASONING BLOCK",
+            preliminary_output_contract_block="OUTPUT BLOCK",
             preliminary_user_template="Analyze inspection image for violations.",
             judge_system_template="Custom judge system",
             judge_user_template=(

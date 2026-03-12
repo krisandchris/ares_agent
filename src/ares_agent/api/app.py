@@ -25,6 +25,7 @@ from ares_agent.model_clients.mock_clients import (
     MockSegmentationClient,
 )
 from ares_agent.plugins.http_callback import HttpCallbackPlugin, Sender
+from ares_agent.prompts.scene_activation import resolve_scene_activation_context
 from ares_agent.prompts.builders import (
     ConfigurableInspectionPromptBuilder,
     PromptBuilder,
@@ -70,11 +71,30 @@ def _build_workflow_from_config(
 def _build_prompt_builder_from_config(config: AppConfig) -> PromptBuilder:
     if config.prompts is None:
         raise ValueError("HTTP model client mode requires configured prompt templates")
+    if config.scene_policies is None:
+        raise ValueError("HTTP model client mode requires configured scene activation policies")
+
+    class _Resolver:
+        def __init__(self, scene_policies):
+            self.scene_policies = scene_policies
+
+        def resolve(self, *, camera_id: str, location: str):
+            return resolve_scene_activation_context(
+                self.scene_policies,
+                camera_id=camera_id,
+                location=location,
+            )
+
     return ConfigurableInspectionPromptBuilder(
-        preliminary_system_template=config.prompts.preliminary.system,
+        preliminary_role_block=config.prompts.preliminary.role_block,
+        preliminary_global_policy_block=config.prompts.preliminary.global_policy_block,
+        preliminary_scene_activation_block_template=config.prompts.preliminary.scene_activation_block_template,
+        preliminary_reasoning_block=config.prompts.preliminary.reasoning_block,
+        preliminary_output_contract_block=config.prompts.preliminary.output_contract_block,
         preliminary_user_template=config.prompts.preliminary.user,
         judge_system_template=config.prompts.judge.system,
         judge_user_template=config.prompts.judge.user,
+        scene_activation_resolver=_Resolver(config.scene_policies),
     )
 
 

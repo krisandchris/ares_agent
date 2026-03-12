@@ -50,14 +50,37 @@ class MockClientSettings(BaseModel):
     evidence_judge_fixture: Path
 
 
-class PromptTemplatePair(BaseModel):
+class SceneActivationRule(BaseModel):
+    enabled_categories: list[str] = []
+    disabled_categories: list[str] = []
+    priority_categories: list[str] = []
+    location_constraints: list[str] = []
+    scene_hint: str = ""
+
+
+class SceneActivationPolicyConfig(BaseModel):
+    camera_defaults: dict[str, SceneActivationRule] = {}
+    location_defaults: dict[str, SceneActivationRule] = {}
+    overrides: dict[str, dict[str, SceneActivationRule]] = {}
+
+
+class PreliminaryPromptSettings(BaseModel):
+    role_block: str
+    global_policy_block: str
+    scene_activation_block_template: str
+    reasoning_block: str
+    output_contract_block: str
+    user: str
+
+
+class JudgePromptSettings(BaseModel):
     system: str
     user: str
 
 
 class PromptSettings(BaseModel):
-    preliminary: PromptTemplatePair
-    judge: PromptTemplatePair
+    preliminary: PreliminaryPromptSettings
+    judge: JudgePromptSettings
 
 
 class ModelEndpointSettings(BaseModel):
@@ -82,6 +105,7 @@ class AppConfig(BaseModel):
     callback: CallbackSettings
     mock_clients: MockClientSettings
     prompts: PromptSettings | None = None
+    scene_policies: SceneActivationPolicyConfig | None = None
     model_clients: ModelClientSettings = ModelClientSettings()
     review: ReviewSettings = ReviewSettings()
 

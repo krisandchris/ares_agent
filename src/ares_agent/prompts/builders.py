@@ -6,12 +6,17 @@ from dataclasses import dataclass
 from typing import Any
 
 from ares_agent.domain.events import EventSeed
+from ares_agent.prompts.scene_activation import SceneActivationContext
 
 
 class PromptBuilder:
     """Protocol-like base class for inspection prompt builders."""
 
-    def build_preliminary_messages(self, seed: EventSeed) -> list[dict[str, Any]]:
+    def build_preliminary_messages(
+        self,
+        seed: EventSeed,
+        scene_activation_context: SceneActivationContext | None = None,
+    ) -> list[dict[str, Any]]:
         raise NotImplementedError
 
     def build_judge_messages(
@@ -29,7 +34,12 @@ class PromptBuilder:
 class DefaultInspectionPromptBuilder(PromptBuilder):
     """Default prompt builder for preliminary and evidence-judge VLM calls."""
 
-    def build_preliminary_messages(self, seed: EventSeed) -> list[dict[str, Any]]:
+    def build_preliminary_messages(
+        self,
+        seed: EventSeed,
+        scene_activation_context: SceneActivationContext | None = None,
+    ) -> list[dict[str, Any]]:
+        del scene_activation_context
         return [
             {"role": "system", "content": "You are a visual preliminary inspection model."},
             {
@@ -75,14 +85,45 @@ class DefaultInspectionPromptBuilder(PromptBuilder):
 class ConfigurableInspectionPromptBuilder(PromptBuilder):
     """Prompt builder backed by YAML-configured template strings."""
 
-    preliminary_system_template: str
+    preliminary_role_block: str
+    preliminary_global_policy_block: str
+    preliminary_scene_activation_block_template: str
+    preliminary_reasoning_block: str
+    preliminary_output_contract_block: str
     preliminary_user_template: str
     judge_system_template: str
     judge_user_template: str
+    scene_activation_resolver: Any | None = None
 
-    def build_preliminary_messages(self, seed: EventSeed) -> list[dict[str, Any]]:
+    def build_preliminary_messages(
+        self,
+        seed: EventSeed,
+        scene_activation_context: SceneActivationContext | None = None,
+    ) -> list[dict[str, Any]]:
+        scene_activation_context = scene_activation_context or (
+            self.scene_activation_resolver.resolve(camera_id=seed.camera_id, location=seed.location)
+            if self.scene_activation_resolver is not None
+            else SceneActivationContext(camera_id=seed.camera_id, location=seed.location)
+        )
+        system_prompt = "\n\n".join(
+            [
+                self.preliminary_role_block.strip(),
+                self.preliminary_global_policy_block.strip(),
+                self.preliminary_scene_activation_block_template.format(
+                    camera_id=scene_activation_context.camera_id,
+                    location=scene_activation_context.location,
+                    scene_hint=scene_activation_context.scene_hint,
+                    enabled_categories=", ".join(scene_activation_context.enabled_categories),
+                    disabled_categories=", ".join(scene_activation_context.disabled_categories),
+                    priority_categories=", ".join(scene_activation_context.priority_categories),
+                    location_constraints=", ".join(scene_activation_context.location_constraints),
+                ).strip(),
+                self.preliminary_reasoning_block.strip(),
+                self.preliminary_output_contract_block.strip(),
+            ]
+        )
         return [
-            {"role": "system", "content": self.preliminary_system_template.strip()},
+            {"role": "system", "content": system_prompt},
             {
                 "role": "user",
                 "content": [
