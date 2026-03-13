@@ -210,6 +210,26 @@ Expected behavior:
 - the response returns the refined event payload for the shared `event_id`
 - the latest event result can be queried by `event_id`
 
+## Test `vlm1_only` with `s3://...`
+
+If your service config enables:
+
+- `orchestrator.chain_mode: vlm1_only`
+- `minio.enabled: true`
+
+you can directly test one object URI with:
+
+```bash
+./scripts/test_vlm1_only_s3.sh s3://your-bucket/your-object.jpg http://127.0.0.1:8000
+```
+
+This script:
+
+- posts to `/v1/inspection-items`
+- keeps `camera_id=front`
+- keeps `location=南山路`
+- prints the HTTP status and formatted JSON response
+
 ## Prompt Configuration
 
 Prompt templates are defined in `config/agent_config.example.yaml`.
