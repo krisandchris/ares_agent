@@ -141,6 +141,8 @@ Split configuration files:
   - model endpoints
   - feature switches
   - MinIO client settings
+- [service_config.sanitized.example.yaml](./config/service_config.sanitized.example.yaml)
+  - redacted template safe for version control
 - [prompt_config.example.yaml](./config/prompt_config.example.yaml)
   - scene policies
   - prompts
