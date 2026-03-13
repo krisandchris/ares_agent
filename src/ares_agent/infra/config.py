@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from copy import deepcopy
 from pathlib import Path
 from typing import Literal
 
@@ -12,6 +13,10 @@ from pydantic import BaseModel, Field, HttpUrl, model_validator
 
 class AgentSettings(BaseModel):
     service_name: str = "street-inspection-agent"
+
+
+class ConfigFileSettings(BaseModel):
+    prompt_config: Path | None = None
 
 
 class OrchestratorSettings(BaseModel):
@@ -43,6 +48,16 @@ class CallbackSettings(BaseModel):
 
 class ReviewSettings(BaseModel):
     enable_manual_review: bool = True
+
+
+class MinioSettings(BaseModel):
+    enabled: bool = False
+    endpoint: str | None = None
+    access_key: str | None = None
+    secret_key: str | None = None
+    secure: bool = False
+    region: str | None = None
+    presign_expiry_seconds: int = 3600
 
 
 class MockClientSettings(BaseModel):
@@ -116,6 +131,7 @@ class ModelClientSettings(BaseModel):
 
 
 class AppConfig(BaseModel):
+    config_files: ConfigFileSettings = ConfigFileSettings()
     agent: AgentSettings = AgentSettings()
     orchestrator: OrchestratorSettings = OrchestratorSettings()
     callback: CallbackSettings
@@ -125,6 +141,7 @@ class AppConfig(BaseModel):
     category_registry: dict[str, CategoryRegistryRule] = Field(default_factory=dict)
     open_risk_registry: OpenRiskRegistry = OpenRiskRegistry()
     model_clients: ModelClientSettings = ModelClientSettings()
+    minio: MinioSettings = MinioSettings()
     review: ReviewSettings = ReviewSettings()
 
     @model_validator(mode="after")
@@ -169,9 +186,18 @@ def load_config(path: str | Path) -> AppConfig:
     """Load YAML configuration into a validated application config."""
     config_path = Path(path)
     data = yaml.safe_load(config_path.read_text(encoding="utf-8")) or {}
+    config_files = data.get("config_files", {})
+    if isinstance(config_files, dict) and config_files.get("prompt_config"):
+        prompt_config_path = _resolve_path(base_dir=config_path.parent, candidate=Path(config_files["prompt_config"]))
+        prompt_data = yaml.safe_load(prompt_config_path.read_text(encoding="utf-8")) or {}
+        data = _deep_merge_dicts(data, prompt_data)
     config = AppConfig.model_validate(data)
     base_dir = config_path.parent
     config.callback = _resolve_callback_settings(config.callback)
+    if config.config_files.prompt_config is not None:
+        config.config_files = ConfigFileSettings(
+            prompt_config=_resolve_path(base_dir, config.config_files.prompt_config)
+        )
     config.mock_clients = MockClientSettings(
         preliminary_fixture=_resolve_path(base_dir, config.mock_clients.preliminary_fixture),
         segmentation_fixture=_resolve_path(base_dir, config.mock_clients.segmentation_fixture),
@@ -182,6 +208,17 @@ def load_config(path: str | Path) -> AppConfig:
 
 def _resolve_path(base_dir: Path, candidate: Path) -> Path:
     return candidate if candidate.is_absolute() else (base_dir / candidate).resolve()
+
+
+def _deep_merge_dicts(base: dict[str, object], incoming: dict[str, object]) -> dict[str, object]:
+    merged = deepcopy(base)
+    for key, value in incoming.items():
+        existing = merged.get(key)
+        if isinstance(existing, dict) and isinstance(value, dict):
+            merged[key] = _deep_merge_dicts(existing, value)
+        else:
+            merged[key] = value
+    return merged
 
 
 def _resolve_callback_settings(settings: CallbackSettings) -> CallbackSettings:

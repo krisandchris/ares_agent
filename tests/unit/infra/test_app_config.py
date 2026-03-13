@@ -340,3 +340,124 @@ def test_load_config_rejects_refined_callback_when_chain_mode_is_vlm1_only(tmp_p
 
     with pytest.raises(ValueError, match="vlm1_only chain_mode requires send_refined=false"):
         load_config(config_path)
+
+
+def test_load_config_supports_split_prompt_config_file(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    segmentation_fixture = tmp_path / "sam.json"
+    segmentation_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    prompt_config_path = tmp_path / "prompt_config.yaml"
+    prompt_config_path.write_text(
+        "\n".join(
+            [
+                "scene_policies:",
+                "  camera_defaults:",
+                "    front:",
+                "      enabled_categories:",
+                "        - motor_vehicle_illegal_parking",
+                "      priority_categories:",
+                "        - motor_vehicle_illegal_parking",
+                "      scene_hint: road-facing camera",
+                "prompts:",
+                "  preliminary:",
+                "    role_block: |",
+                "      ROLE BLOCK",
+                "    scene_activation_block_template: |",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
+                "    reasoning_block: |",
+                "      REASONING BLOCK",
+                "    output_contract_block: |",
+                "      OUTPUT CONTRACT BLOCK",
+                "    user: |",
+                "      Analyze this inspection image.",
+                "  judge:",
+                "    system: |",
+                "      JUDGE SYSTEM",
+                "    user: |",
+                "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  motor_vehicle_illegal_parking:",
+                "    definition: vehicle occupies prohibited area",
+                "    common_objects:",
+                "      - motor_vehicle",
+                "    relation_focus:",
+                "      - vehicle_occupies_prohibited_area",
+                "open_risk_registry:",
+                "  guidance: |",
+                "    If obvious risk exists outside prioritized categories, output open_risk.",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    service_config_path = tmp_path / "service_config.yaml"
+    service_config_path.write_text(
+        "\n".join(
+            [
+                "config_files:",
+                f"  prompt_config: {prompt_config_path.name}",
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {segmentation_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+                "model_clients:",
+                "  mode: mock",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(service_config_path)
+
+    assert config.prompts is not None
+    assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
+    assert config.scene_policies is not None
+    assert config.scene_policies.camera_defaults["front"].scene_hint == "road-facing camera"
+
+
+def test_load_config_reads_minio_settings(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    segmentation_fixture = tmp_path / "sam.json"
+    segmentation_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {segmentation_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+                "minio:",
+                "  enabled: true",
+                "  endpoint: minio.example.com:9000",
+                "  access_key: minio-access",
+                "  secret_key: minio-secret",
+                "  secure: true",
+                "  presign_expiry_seconds: 900",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.minio.enabled is True
+    assert config.minio.endpoint == "minio.example.com:9000"
+    assert config.minio.access_key == "minio-access"
+    assert config.minio.secret_key == "minio-secret"
+    assert config.minio.secure is True
+    assert config.minio.presign_expiry_seconds == 900

@@ -1,0 +1,204 @@
+scene_policies:
+  camera_defaults:
+    front:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      priority_categories:
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - goods_blocking_road
+      scene_hint: road-facing camera
+    left:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+    right:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      priority_categories:
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      scene_hint: storefront-facing camera
+  location_defaults:
+    南山路:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      location_constraints:
+        - focus on roadside, sidewalk, storefront frontage, and pedestrian passage
+    水坊街:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      location_constraints:
+        - focus on storefront frontage, sidewalk occupation, and outdoor charging behavior
+  overrides:
+    南山路:
+      front:
+        enabled_categories:
+          - road_occupying_vendor
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - vagrants_blocking_roadway
+          - begging_blocking_roadway
+          - off_leash_dog_nuisance
+        disabled_categories:
+          - staff_not_wear_mask
+        priority_categories:
+          - motor_vehicle_illegal_parking
+          - nonmotor_vehicle_illegal_parking
+          - goods_blocking_road
+      left:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+      right:
+        enabled_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+        priority_categories:
+          - staff_not_wear_mask
+          - goods_blocking_road
+          - unauthorized_electrical_wiring
+
+prompts:
+  preliminary:
+    role_block: |
+      You are a city-street visual inspection model for a robot-dog patrol backend.
+      Your task is to analyze one inspection image from a robot-dog patrol and determine whether a violation or risk event exists.
+    scene_activation_block_template: |
+      Current scene focus:
+      - scene_hint: {scene_hint}
+      - priority_categories: {priority_categories}
+      - open_risk_guidance: {open_risk_guidance}
+
+      Use rules:
+      - prioritize priority_categories first
+      - if visible evidence strongly suggests a risk outside the priority standard categories, follow open_risk_guidance
+    category_focus_block_template: |
+      Prioritized category references:
+      {category_definitions}
+    reasoning_block: |
+      Always analyze the full environment before deciding the violation category.
+      Do not judge from a single object alone. Use spatial relationships between objects and environment.
+      segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets.
+      If the image is occluded, blurry, distant, or incomplete, mention that in the analysis and lower confidence.
+      If no violation or risk exists, output violation_category="none".
+    output_contract_block: |
+      You must output JSON only, in this exact order:
+      1. environment_analysis
+      2. scene_elements
+      3. evidence_reasoning
+      4. segmentation_targets
+      5. relation_hint
+      6. violation_category
+      7. open_risk_type
+      8. confidence
+    user: |
+      Analyze this inspection image under the configured scene policy and output the required JSON.
+  judge:
+    system: |
+      You are the second-stage evidence-judgment model in a city-street visual inspection pipeline.
+      Your role is not to freely reclassify the whole image. Your role is to judge whether the current candidate violation category is supported by the SAM3 segmentation result image and the provided segmentation semantics.
+    user: |
+      category_code={category_code}
+      mask_labels={mask_labels}
+      relation_hint={relation_hint}
+      evidence_basis_summary={evidence_basis_summary}
+
+category_registry:
+  road_occupying_vendor:
+    definition: 商户或摊贩摆摊、设棚、堆放物品占用人行道或车道
+    common_objects: [stall, canopy, shelf, goods, storefront_boundary, sidewalk, roadway]
+    relation_focus: [goods_extend_beyond_storefront, occupy_sidewalk_or_roadway]
+    exceptions: [landscape_objects, newspaper_kiosk_adjacent_display]
+  goods_blocking_road:
+    definition: 货物、材料、宣传牌、垃圾等堆放在人行道并阻碍通行
+    common_objects: [goods, materials, signboard, trash, storefront_entrance, sidewalk]
+    relation_focus: [objects_on_sidewalk, obstruct_pedestrian_passage]
+    exceptions: []
+  unauthorized_electrical_wiring:
+    definition: 私自将电线拉至户外为电动车充电
+    common_objects: [wire, charger, electric_vehicle, outdoor_connection, storefront_power_source]
+    relation_focus: [wire_connects_power_to_vehicle, outdoor_charging_behavior]
+    exceptions: []
+  motor_vehicle_illegal_parking:
+    definition: 机动车占用人行道、公交站台或非划线区域
+    common_objects: [motor_vehicle, motorcycle, sidewalk, blind_path, bus_stop, parking_line, unmarked_area]
+    relation_focus: [vehicle_occupies_prohibited_area]
+    exceptions: []
+  nonmotor_vehicle_illegal_parking:
+    definition: 无人使用状态下的非机动车占用人行道或车道
+    common_objects: [e_bike, bicycle, tricycle, sidewalk, roadway, blind_path, unattended_state]
+    relation_focus: [nonmotor_vehicle_occupies_walkway_or_road, unattended_vehicle_state]
+    exceptions: []
+  vagrants_blocking_roadway:
+    definition: 衣衫褴褛、头发凌乱的人倚坐或躺在路旁或路中央
+    common_objects: [disheveled_person, roadside, road_center]
+    relation_focus: [person_sitting_or_lying_in_road_area]
+    exceptions: []
+  begging_blocking_roadway:
+    definition: 携带乞讨工具的乞讨人员在路边或路中央占道
+    common_objects: [disheveled_person, begging_bowl, begging_sign, roadside, road_center]
+    relation_focus: [person_with_begging_tools_in_road_area]
+    exceptions: []
+  off_leash_dog_nuisance:
+    definition: 行人遛宠物狗时未使用牵引绳
+    common_objects: [pedestrian, pet_dog, leash]
+    relation_focus: [dog_not_restrained_by_leash]
+    exceptions: []
+  staff_not_wear_mask:
+    definition: 餐饮商户工作人员未佩戴口罩
+    common_objects: [catering_storefront, staff, mask, counter, food_operation_scene]
+    relation_focus: [catering_staff_without_mask]
+    exceptions: []
+
+open_risk_registry:
+  guidance: |
+    If obvious risk evidence exists but does not fit the prioritized standard categories,
+    output violation_category="open_risk" and provide a concise open_risk_type.
+  examples:
+    - fire_or_smoke
+    - fallen_tree_or_branch
+    - flooding_or_water_accumulation
+    - damaged_manhole_or_road_surface
+    - exposed_infrastructure
+    - collapsed_barrier_or_fence
+    - traffic_accident_scene
+    - construction_hazard
+    - large_debris_on_road
+    - sanitation_emergency

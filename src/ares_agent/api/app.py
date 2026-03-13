@@ -33,6 +33,7 @@ from ares_agent.prompts.builders import (
     ConfigurableInspectionPromptBuilder,
     PromptBuilder,
 )
+from ares_agent.services.image_uri_resolver import ImageUriResolver, MinioS3UriResolver, resolve_image_uri
 from ares_agent.workflows.inspection_event_workflow import (
     build_inspection_event_workflow,
     build_preliminary_only_workflow,
@@ -48,12 +49,14 @@ def _build_workflow_from_config(
     *,
     callback_sender: Sender | None = None,
     model_requesters: dict[str, Requester] | None = None,
+    image_uri_resolver: ImageUriResolver | None = None,
 ) -> Workflow:
     model_requesters = model_requesters or {}
     if config.orchestrator.chain_mode == "vlm1_only":
         preliminary_client = _build_preliminary_client_from_config(
             config,
             model_requester=model_requesters.get("preliminary"),
+            image_uri_resolver=image_uri_resolver,
         )
         return build_preliminary_only_workflow(
             preliminary_client=preliminary_client,
@@ -76,6 +79,7 @@ def _build_workflow_from_config(
     preliminary_client, segmentation_client, evidence_judge_client = _build_model_clients_from_config(
         config,
         model_requesters=model_requesters,
+        image_uri_resolver=image_uri_resolver,
     )
     return build_inspection_event_workflow(
         preliminary_client=preliminary_client,
@@ -102,12 +106,13 @@ def _build_preliminary_client_from_config(
     config: AppConfig,
     *,
     model_requester: Requester | None = None,
+    image_uri_resolver: ImageUriResolver | None = None,
 ):
     if config.model_clients.mode == "http":
         prompt_builder = _build_prompt_builder_from_config(config)
         if config.model_clients.preliminary is None:
             raise ValueError("HTTP model client mode requires a preliminary endpoint")
-        return SglangVlmPreliminaryClient(
+        client = SglangVlmPreliminaryClient(
             endpoint=_build_http_endpoint(
                 str(config.model_clients.preliminary.base_url),
                 config.model_clients.preliminary.endpoint,
@@ -119,7 +124,13 @@ def _build_preliminary_client_from_config(
             requester=model_requester,
             prompt_builder=prompt_builder,
         )
-    return MockPreliminaryClient(fixture_path=config.mock_clients.preliminary_fixture)
+        if image_uri_resolver is not None:
+            return _ResolvingPreliminaryClient(client=client, image_uri_resolver=image_uri_resolver)
+        return client
+    mock_client = MockPreliminaryClient(fixture_path=config.mock_clients.preliminary_fixture)
+    if image_uri_resolver is not None:
+        return _ResolvingPreliminaryClient(client=mock_client, image_uri_resolver=image_uri_resolver)
+    return mock_client
 
 
 def _build_prompt_builder_from_config(config: AppConfig) -> PromptBuilder:
@@ -147,6 +158,7 @@ def _build_model_clients_from_config(
     config: AppConfig,
     *,
     model_requesters: dict[str, Requester] | None = None,
+    image_uri_resolver: ImageUriResolver | None = None,
 ):
     model_requesters = model_requesters or {}
     if config.model_clients.mode == "http":
@@ -155,8 +167,7 @@ def _build_model_clients_from_config(
         prompt_builder = _build_prompt_builder_from_config(config)
         if config.model_clients.preliminary is None or config.model_clients.judge is None or config.model_clients.sam3 is None:
             raise ValueError("HTTP model client mode requires preliminary, judge, and sam3 endpoints")
-        return (
-            SglangVlmPreliminaryClient(
+        preliminary_client = SglangVlmPreliminaryClient(
                 endpoint=_build_http_endpoint(
                     str(config.model_clients.preliminary.base_url),
                     config.model_clients.preliminary.endpoint,
@@ -167,15 +178,27 @@ def _build_model_clients_from_config(
                 max_tokens=config.model_clients.preliminary.max_tokens,
                 requester=model_requesters.get("preliminary"),
                 prompt_builder=prompt_builder,
+            )
+        segmentation_client = Sam3FastApiClient(
+            endpoint=_build_http_endpoint(
+                str(config.model_clients.sam3.base_url),
+                config.model_clients.sam3.endpoint,
             ),
-            Sam3FastApiClient(
-                endpoint=_build_http_endpoint(
-                    str(config.model_clients.sam3.base_url),
-                    config.model_clients.sam3.endpoint,
-                ),
-                timeout_ms=config.model_clients.sam3.timeout_ms,
-                requester=model_requesters.get("sam3"),
-            ),
+            timeout_ms=config.model_clients.sam3.timeout_ms,
+            requester=model_requesters.get("sam3"),
+        )
+        if image_uri_resolver is not None:
+            preliminary_client = _ResolvingPreliminaryClient(
+                client=preliminary_client,
+                image_uri_resolver=image_uri_resolver,
+            )
+            segmentation_client = _ResolvingSegmentationClient(
+                client=segmentation_client,
+                image_uri_resolver=image_uri_resolver,
+            )
+        return (
+            preliminary_client,
+            segmentation_client,
             SglangVlmJudgeClient(
                 endpoint=_build_http_endpoint(
                     str(config.model_clients.judge.base_url),
@@ -190,9 +213,20 @@ def _build_model_clients_from_config(
             ),
         )
 
+    preliminary_client = MockPreliminaryClient(fixture_path=config.mock_clients.preliminary_fixture)
+    segmentation_client = MockSegmentationClient(fixture_path=config.mock_clients.segmentation_fixture)
+    if image_uri_resolver is not None:
+        preliminary_client = _ResolvingPreliminaryClient(
+            client=preliminary_client,
+            image_uri_resolver=image_uri_resolver,
+        )
+        segmentation_client = _ResolvingSegmentationClient(
+            client=segmentation_client,
+            image_uri_resolver=image_uri_resolver,
+        )
     return (
-        MockPreliminaryClient(fixture_path=config.mock_clients.preliminary_fixture),
-        MockSegmentationClient(fixture_path=config.mock_clients.segmentation_fixture),
+        preliminary_client,
+        segmentation_client,
         MockEvidenceJudgeClient(fixture_path=config.mock_clients.evidence_judge_fixture),
     )
 
@@ -201,9 +235,29 @@ def _build_http_endpoint(base_url: str, endpoint: str) -> str:
     return f"{base_url.rstrip('/')}/{endpoint.lstrip('/')}"
 
 
+def _build_image_uri_resolver_from_config(config: AppConfig) -> ImageUriResolver | None:
+    if not config.minio.enabled:
+        return None
+    if config.minio.endpoint is None or config.minio.access_key is None or config.minio.secret_key is None:
+        raise ValueError("MinIO enabled requires endpoint, access_key, and secret_key")
+    return MinioS3UriResolver(
+        enabled=config.minio.enabled,
+        endpoint=config.minio.endpoint,
+        access_key=config.minio.access_key,
+        secret_key=config.minio.secret_key,
+        presign_expiry_seconds=config.minio.presign_expiry_seconds,
+        secure=config.minio.secure,
+        region=config.minio.region,
+    )
+
+
 def _build_default_workflow(*, callback_sender: Sender | None = None) -> Workflow:
     config = load_config(Path.cwd() / "config/agent_config.example.yaml")
-    return _build_workflow_from_config(config, callback_sender=callback_sender)
+    return _build_workflow_from_config(
+        config,
+        callback_sender=callback_sender,
+        image_uri_resolver=_build_image_uri_resolver_from_config(config),
+    )
 
 
 def create_app(
@@ -213,6 +267,7 @@ def create_app(
     callback_sender: Sender | None = None,
     event_store: InMemoryEventStore | None = None,
     model_requesters: dict[str, Requester] | None = None,
+    image_uri_resolver: ImageUriResolver | None = None,
 ) -> FastAPI:
     """Create the API app with the minimal service endpoints."""
     app = FastAPI(title="Ares Street Inspection Agent")
@@ -221,6 +276,7 @@ def create_app(
     else:
         app.state.app_config = load_config(Path.cwd() / "config/agent_config.example.yaml")
     app.state.event_store = event_store or InMemoryEventStore()
+    app.state.image_uri_resolver = image_uri_resolver or _build_image_uri_resolver_from_config(app.state.app_config)
     if workflow is not None:
         app.state.inspection_workflow = workflow
     elif config_path is not None:
@@ -228,12 +284,14 @@ def create_app(
             app.state.app_config,
             callback_sender=callback_sender,
             model_requesters=model_requesters,
+            image_uri_resolver=app.state.image_uri_resolver,
         )
     else:
         app.state.inspection_workflow = _build_workflow_from_config(
             app.state.app_config,
             callback_sender=callback_sender,
             model_requesters=model_requesters,
+            image_uri_resolver=app.state.image_uri_resolver,
         )
 
     @app.get("/healthz")
@@ -336,6 +394,30 @@ def _parse_error(error_text: str) -> tuple[str, str]:
         return "WorkflowError", error_text
     error_type, error_message = error_text.split(": ", 1)
     return error_type, error_message
+
+
+class _ResolvingPreliminaryClient:
+    def __init__(self, *, client: object, image_uri_resolver: ImageUriResolver | None) -> None:
+        self.client = client
+        self.image_uri_resolver = image_uri_resolver
+
+    def analyze(self, seed: EventSeed):
+        resolved_seed = seed
+        if self.image_uri_resolver is not None:
+            resolved_seed = seed.model_copy(
+                update={"image_uri": resolve_image_uri(seed.image_uri, resolver=self.image_uri_resolver)}
+            )
+        return self.client.analyze(resolved_seed)
+
+
+class _ResolvingSegmentationClient:
+    def __init__(self, *, client: object, image_uri_resolver: ImageUriResolver | None) -> None:
+        self.client = client
+        self.image_uri_resolver = image_uri_resolver
+
+    def segment(self, image_uri: str, targets: list[str]):
+        resolved_uri = resolve_image_uri(image_uri, resolver=self.image_uri_resolver)
+        return self.client.segment(resolved_uri, targets)
 
 
 app = create_app()

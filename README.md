@@ -92,6 +92,12 @@ uv run uvicorn ares_agent.api.app:app --host 0.0.0.0 --port 8000
 ./scripts/run_service.sh --config config/agent_config.example.yaml --host 0.0.0.0 --port 8000
 ```
 
+Recommended split-config service startup:
+
+```bash
+./scripts/run_service.sh --config config/service_config.example.yaml --host 0.0.0.0 --port 8000
+```
+
 `orchestrator.chain_mode` in config controls the runtime chain:
 
 - `full`
@@ -122,6 +128,24 @@ Illegal configuration:
 
 For MinIO object storage, provide `image_uri` as an `http(s)` object URL.
 That URL is passed through to `VLM-1` unchanged in service mode.
+
+If you want to pass `s3://bucket/object` instead, enable MinIO settings in the service config.
+The service will resolve the `s3://...` URI into a presigned `http(s)` URL before calling `VLM-1`
+and, in `full` mode, before calling `SAM3`.
+
+Split configuration files:
+
+- [service_config.example.yaml](./config/service_config.example.yaml)
+  - service/runtime settings
+  - callback
+  - model endpoints
+  - feature switches
+  - MinIO client settings
+- [prompt_config.example.yaml](./config/prompt_config.example.yaml)
+  - scene policies
+  - prompts
+  - category registry
+  - open risk registry
 
 ## Run VLM-1 Tester
 
@@ -156,6 +180,27 @@ curl -X POST http://127.0.0.1:8000/v1/inspection-items \
     "task_id": "patrol-sh-001",
     "occur_time": "2026-03-09T10:00:00Z"
   }'
+```
+
+```bash
+  先在图片目录启动：
+
+  cd /absolute/path/to/image-dir
+  python3 -m http.server 9000
+
+  然后请求：
+
+  curl -X POST http://127.0.0.1:8000/v1/inspection-items \
+    -H "Content-Type: application/json" \
+    -d '{
+      "image_uri": "http://127.0.0.1:9000/test.jpg",
+      "camera_id": "front",
+      "location": "南山路",
+      "device_id": "dog-17",
+      "task_id": "patrol-http-001",
+      "occur_time": "2026-03-09T10:00:00Z"
+    }'
+
 ```
 
 Expected behavior:

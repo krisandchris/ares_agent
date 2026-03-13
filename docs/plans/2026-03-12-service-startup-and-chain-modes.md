@@ -22,6 +22,12 @@
 ./scripts/run_service.sh --config config/agent_config.example.yaml --host 0.0.0.0 --port 8000
 ```
 
+推荐使用分离配置：
+
+```bash
+./scripts/run_service.sh --config config/service_config.example.yaml --host 0.0.0.0 --port 8000
+```
+
 该脚本只是正式服务包装层，底层仍然调用：
 
 - `create_app(config_path=...)`
@@ -90,6 +96,20 @@ callback:
 - 如果是 `full` 模式，也会原样传递给 `SAM3`
 
 因此当前不需要在服务端做额外 MinIO SDK 下载或 presign 转换。
+
+如果启用了 MinIO 客户端配置，则也支持：
+
+- `s3://bucket/object`
+
+此时服务会在调用下游模型前将其转换为 presigned `http(s)` URL。
+
+MinIO 配置位于：
+
+- [service_config.example.yaml](/mnt/lc/LC/ares_xtws/ares_agent/config/service_config.example.yaml)
+
+提示词和场景策略配置位于：
+
+- [prompt_config.example.yaml](/mnt/lc/LC/ares_xtws/ares_agent/config/prompt_config.example.yaml)
 
 ## 5. 行为总结
 

@@ -11,12 +11,13 @@ from pathlib import Path
 from typing import Protocol, cast
 from urllib.parse import urlparse
 
-from ares_agent.api.app import _build_prompt_builder_from_config
+from ares_agent.api.app import _build_image_uri_resolver_from_config, _build_prompt_builder_from_config
 from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.model_clients.http_clients import Requester, SglangVlmPreliminaryClient
 from ares_agent.model_clients.mock_clients import MockPreliminaryClient
 from ares_agent.prompts.builders import PromptBuilder, PromptMessage, SceneActivationResolver
+from ares_agent.services.image_uri_resolver import ImageUriResolver
 from ares_agent.prompts.scene_activation import SceneActivationContext
 from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
 
@@ -58,10 +59,12 @@ def run_vlm1_preliminary_test(
                 )
             }
         )
+    image_uri_resolver = _build_image_uri_resolver_from_config(config)
     resolved_image_uri = _resolve_input_image_uri(
         image_uri=image_uri,
         uploaded_image_path=uploaded_image_path,
         mode=config.model_clients.mode,
+        image_uri_resolver=image_uri_resolver,
     )
     prompt_builder = _build_prompt_builder_from_config(config)
     seed = EventSeed(
@@ -232,6 +235,7 @@ def _resolve_input_image_uri(
     image_uri: str,
     uploaded_image_path: str | Path | None,
     mode: str,
+    image_uri_resolver: ImageUriResolver | None,
 ) -> str:
     if uploaded_image_path:
         path = Path(uploaded_image_path).resolve()
@@ -240,6 +244,8 @@ def _resolve_input_image_uri(
         return path.as_uri()
     if mode == "http":
         scheme = urlparse(image_uri).scheme.lower()
+        if scheme == "s3" and image_uri_resolver is not None:
+            return image_uri_resolver.resolve(image_uri)
         if scheme not in {"http", "https", "data"}:
             raise ValueError("HTTP mode requires image_uri to use http, https, or data URL")
     return image_uri
