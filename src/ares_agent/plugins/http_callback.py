@@ -5,13 +5,15 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Any, Callable, TypedDict, cast
+from typing import Callable, TypedDict, cast
 from urllib import request
 
 from pydantic import BaseModel
 
+from ares_agent.domain.json_types import JsonObject
 
-Sender = Callable[[str, dict[str, str], dict[str, object]], dict[str, object]]
+
+Sender = Callable[[str, dict[str, str], JsonObject], JsonObject]
 
 
 class CallbackResponsePayload(TypedDict, total=False):
@@ -32,10 +34,10 @@ class CallbackResult:
 def _default_sender(
     url: str,
     headers: dict[str, str],
-    payload: dict[str, object],
+    payload: JsonObject,
     *,
     timeout_ms: int,
-) -> dict[str, object]:
+) -> JsonObject:
     body = json.dumps(payload).encode("utf-8")
     req = request.Request(url=url, data=body, headers=headers, method="POST")
     with request.urlopen(req, timeout=timeout_ms / 1000) as response:  # noqa: S310
@@ -46,7 +48,7 @@ def _default_sender(
         }
 
 
-def _parse_callback_response(response: dict[str, object]) -> CallbackResult:
+def _parse_callback_response(response: JsonObject) -> CallbackResult:
     typed_response = cast(CallbackResponsePayload, response)
     status_code = int(typed_response["status_code"])
     backend_trace_id_raw = typed_response.get("backend_trace_id")
@@ -106,9 +108,9 @@ class HttpCallbackPlugin:
         return last_result
 
     @staticmethod
-    def _serialize_payload(event_payload: object) -> dict[str, object]:
+    def _serialize_payload(event_payload: object) -> JsonObject:
         if isinstance(event_payload, BaseModel):
-            return dict(event_payload.model_dump(mode="json"))
+            return cast(JsonObject, dict(event_payload.model_dump(mode="json")))
         if isinstance(event_payload, dict):
-            return dict(event_payload)
+            return cast(JsonObject, dict(event_payload))
         raise TypeError(f"Unsupported payload type: {type(event_payload)!r}")

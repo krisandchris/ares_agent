@@ -3,10 +3,11 @@
 from __future__ import annotations
 
 import json
-from typing import Any, Callable, TypedDict, cast
+from typing import Callable, TypedDict, cast
 from urllib import request
 
 from ares_agent.domain.events import EventSeed
+from ares_agent.domain.json_types import JsonObject
 from ares_agent.prompts.builders import PromptBuilder, PromptMessage
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
@@ -29,12 +30,12 @@ class Sam3RequestPayload(TypedDict):
 
 Requester = Callable[
     [str, dict[str, str], PreliminaryRequestPayload | Sam3RequestPayload],
-    dict[str, object],
+    JsonObject,
 ]
 
 
 class ChatMessage(TypedDict):
-    content: str | dict[str, Any]
+    content: str | JsonObject
 
 
 class ChatChoice(TypedDict):
@@ -51,14 +52,14 @@ def _default_requester(
     payload: PreliminaryRequestPayload | Sam3RequestPayload,
     *,
     timeout_ms: int,
-) -> dict[str, object]:
+) -> JsonObject:
     body = json.dumps(payload).encode("utf-8")
     req = request.Request(url=url, data=body, headers=headers, method="POST")
     with request.urlopen(req, timeout=timeout_ms / 1000) as response:  # noqa: S310
         return json.loads(response.read().decode("utf-8"))
 
 
-def _extract_chat_message_content(response: dict[str, object]) -> str | dict[str, Any]:
+def _extract_chat_message_content(response: JsonObject) -> str | JsonObject:
     typed_response = cast(ChatCompletionResponse, response)
     return typed_response["choices"][0]["message"]["content"]
 
