@@ -140,6 +140,49 @@ def test_vlm1_client_parses_none_result() -> None:
     assert result.segmentation_targets == []
 
 
+def test_vlm1_client_normalizes_null_open_risk_type_for_non_open_risk() -> None:
+    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+        return {
+            "choices": [
+                {
+                    "message": {
+                        "content": {
+                            "environment_analysis": "clean roadway scene",
+                            "scene_elements": ["roadway"],
+                            "evidence_reasoning": "no obvious violation or risk is visible",
+                            "segmentation_targets": [],
+                            "relation_hint": "",
+                            "violation_category": "none",
+                            "open_risk_type": None,
+                            "confidence": 0.1,
+                        }
+                    }
+                }
+            ]
+        }
+
+    client = SglangVlmPreliminaryClient(
+        endpoint="/mock/vlm/preliminary",
+        model_name="inspection-vlm",
+        requester=fake_requester,
+        prompt_builder=DefaultInspectionPromptBuilder(),
+    )
+
+    result = client.analyze(
+        EventSeed(
+            image_uri="s3://street/frame-106.jpg",
+            camera_id="front",
+            location="南山路",
+            device_id="dog-35",
+            task_id="patrol-sh-106",
+            occur_time="2026-03-10T09:20:00Z",
+        )
+    )
+
+    assert result.violation_category == "none"
+    assert result.open_risk_type == ""
+
+
 def test_vlm1_client_rejects_missing_required_fields() -> None:
     def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
         return {

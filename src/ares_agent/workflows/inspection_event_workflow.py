@@ -7,7 +7,7 @@ from typing import Any, Protocol, TypedDict, cast
 
 from agno.workflow import Step, Workflow
 from agno.workflow.types import StepInput, StepOutput
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.domain.evidence import EvidencePackage
@@ -25,6 +25,15 @@ class PreliminaryResult(BaseModel):
     violation_category: str
     open_risk_type: str
     confidence: float = Field(ge=0.0, le=1.0)
+
+    @field_validator("open_risk_type", mode="before")
+    @classmethod
+    def normalize_open_risk_type(cls, value: object) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value
+        return str(value)
 
     @model_validator(mode="after")
     def validate_open_risk_type(self) -> "PreliminaryResult":
