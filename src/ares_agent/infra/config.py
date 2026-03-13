@@ -32,6 +32,11 @@ class ConfigFileSettings(BaseModel):
     prompt_config: Path | None = None
 
 
+class EventStoreSettings(BaseModel):
+    backend: Literal["memory", "file"] = "memory"
+    base_dir: Path | None = None
+
+
 class OrchestratorSettings(BaseModel):
     enable_async_refine: bool = True
     chain_mode: Literal["full", "vlm1_only"] = "full"
@@ -147,6 +152,7 @@ class AppConfig(BaseModel):
     config_files: ConfigFileSettings = ConfigFileSettings()
     agent: AgentSettings = AgentSettings()
     logging: LoggingSettings = LoggingSettings()
+    event_store: EventStoreSettings = EventStoreSettings()
     orchestrator: OrchestratorSettings = OrchestratorSettings()
     callback: CallbackSettings
     mock_clients: MockClientSettings
@@ -211,6 +217,11 @@ def load_config(path: str | Path) -> AppConfig:
     if config.config_files.prompt_config is not None:
         config.config_files = ConfigFileSettings(
             prompt_config=_resolve_path(base_dir, config.config_files.prompt_config)
+        )
+    if config.event_store.base_dir is not None:
+        config.event_store = EventStoreSettings(
+            backend=config.event_store.backend,
+            base_dir=_resolve_path(base_dir, config.event_store.base_dir),
         )
     config.mock_clients = MockClientSettings(
         preliminary_fixture=_resolve_path(base_dir, config.mock_clients.preliminary_fixture),

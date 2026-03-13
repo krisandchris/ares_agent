@@ -49,6 +49,38 @@ def test_load_config_reads_callback_and_review_settings(tmp_path: Path) -> None:
     assert config.review.enable_manual_review is True
 
 
+def test_load_config_reads_event_store_backend_and_base_dir(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    segmentation_fixture = tmp_path / "sam.json"
+    segmentation_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture.name}",
+                f"  segmentation_fixture: {segmentation_fixture.name}",
+                f"  evidence_judge_fixture: {judge_fixture.name}",
+                "event_store:",
+                "  backend: file",
+                "  base_dir: data/event_store",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = load_config(config_path)
+
+    assert config.event_store.backend == "file"
+    assert config.event_store.base_dir == (tmp_path / "data/event_store").resolve()
+
+
 def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_blocks(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text("{}", encoding="utf-8")

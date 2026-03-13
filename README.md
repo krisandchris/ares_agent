@@ -18,8 +18,9 @@ Implemented today:
 - Agno workflow orchestration
 - JSON fixture-backed mock VLM-1 / SAM3 / VLM-2 clients
 - HTTP callback plugin
-- in-memory event result storage
+- configurable in-memory / file-backed event result storage
 - event query route by `event_id`
+- structured request/workflow/callback logging
 - success and failure path unit tests
 - YAML-defined VLM-1 / VLM-2 system and user prompt templates
 
@@ -48,7 +49,7 @@ Not implemented yet:
 src/ares_agent/
 ├── api/           # FastAPI app and schemas
 ├── domain/        # Event / evidence / taxonomy definitions
-├── infra/         # Config and in-memory event store
+├── infra/         # Config, logging, and event store backends
 ├── model_clients/ # Mock clients and HTTP-style model clients
 ├── plugins/       # Callback adapters
 ├── prompts/       # Prompt builders with config-template variable injection
@@ -99,6 +100,33 @@ Recommended split-config service startup:
 ./scripts/run_service.sh --config config/service_config.example.yaml --host 0.0.0.0 --port 8000
 ```
 
+The service now supports two `event_store` backends:
+
+- `memory`
+  - default behavior
+  - keeps latest event payloads only in the current process memory
+  - data is lost after process restart
+- `file`
+  - persists latest payloads under a local directory on disk
+  - keeps one JSON file per `event_id`
+  - survives process restart on the same machine
+
+Recommended local persistence config:
+
+```yaml
+event_store:
+  backend: file
+  base_dir: ./data/event_store
+```
+
+With `backend: file`, the service writes event payloads to:
+
+```text
+<base_dir>/<event_id>.json
+```
+
+The current implementation uses atomic replace on save, so each event file is written through a temporary file before becoming visible.
+
 `orchestrator.chain_mode` in config controls the runtime chain:
 
 - `full`
@@ -138,6 +166,8 @@ Split configuration files:
 
 - [service_config.example.yaml](./config/service_config.example.yaml)
   - service/runtime settings
+  - logging
+  - event_store backend
   - callback
   - model endpoints
   - feature switches
@@ -212,6 +242,40 @@ Expected behavior:
 - the workflow runs `VLM-1 -> SAM3 -> VLM-2 -> callback`
 - the response returns the refined event payload for the shared `event_id`
 - the latest event result can be queried by `event_id`
+
+Query the stored event payload:
+
+```bash
+curl http://127.0.0.1:8000/v1/events/<event_id>
+```
+
+When `event_store.backend=file`, the same payload is also persisted to the local `base_dir`.
+
+## Logging
+
+The service emits structured JSON logs to stdout.
+
+Current log coverage includes:
+
+- request lifecycle logs for `/v1/inspection-items`
+- workflow stage logs for `preliminary`, `segmentation`, and `evidence_judge`
+- model HTTP client logs for `VLM-1`, `SAM3`, and `VLM-2`
+- callback start / retry / success / failure logs
+- event store save/load logs
+
+Correlation strategy:
+
+- `event_id` is the primary chain key
+- `request_id` is the HTTP-layer key
+
+You can send your own request id through:
+
+```bash
+curl -X POST http://127.0.0.1:8000/v1/inspection-items \
+  -H "Content-Type: application/json" \
+  -H "X-Request-ID: req-demo-001" \
+  -d '{...}'
+```
 
 ## Test `vlm1_only` with `s3://...`
 

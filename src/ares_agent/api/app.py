@@ -16,7 +16,7 @@ from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.domain.json_types import JsonObject
 from ares_agent.domain.payloads import StoredEventPayload
 from ares_agent.infra.config import AppConfig, load_config
-from ares_agent.infra.event_store import InMemoryEventStore
+from ares_agent.infra.event_store import EventStore, FileBackedEventStore, InMemoryEventStore
 from ares_agent.infra.log_context import bind_event_context, bind_log_context, clear_log_context
 from ares_agent.infra.logging import configure_logging, get_logger
 from ares_agent.model_clients.http_clients import (
@@ -262,12 +262,19 @@ def _build_default_workflow(*, callback_sender: Sender | None = None) -> Workflo
     )
 
 
+def _build_event_store_from_config(config: AppConfig) -> EventStore:
+    if config.event_store.backend == "file":
+        base_dir = config.event_store.base_dir or (Path.cwd() / "data/event_store").resolve()
+        return FileBackedEventStore(base_dir=base_dir)
+    return InMemoryEventStore()
+
+
 def create_app(
     *,
     workflow: Workflow | None = None,
     config_path: str | Path | None = None,
     callback_sender: Sender | None = None,
-    event_store: InMemoryEventStore | None = None,
+    event_store: EventStore | None = None,
     model_requesters: dict[str, Requester] | None = None,
     image_uri_resolver: ImageUriResolver | None = None,
 ) -> FastAPI:
@@ -280,7 +287,7 @@ def create_app(
     app.state.app_config.logging.service_name = app.state.app_config.agent.service_name
     configure_logging(app.state.app_config.logging, force=True)
     app_logger = get_logger(__name__)
-    app.state.event_store = event_store or InMemoryEventStore()
+    app.state.event_store = event_store or _build_event_store_from_config(app.state.app_config)
     app.state.image_uri_resolver = image_uri_resolver or _build_image_uri_resolver_from_config(app.state.app_config)
     if workflow is not None:
         app.state.inspection_workflow = workflow

@@ -13,6 +13,10 @@ logging:
   log_model_payload_summary: true
   log_callback_payload_summary: true
 
+event_store:
+  backend: file
+  base_dir: ./data/event_store
+
 orchestrator:
   enable_async_refine: false
   chain_mode: vlm1_only

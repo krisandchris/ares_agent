@@ -6,6 +6,7 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from ares_agent.api.app import create_app
+from ares_agent.infra.event_store import FileBackedEventStore
 
 
 def test_create_app_bootstraps_workflow_from_config_and_fixture_paths(tmp_path: Path) -> None:
@@ -111,3 +112,34 @@ def test_create_app_requires_explicit_workflow_or_config_for_custom_bootstrap() 
     response = client.get("/healthz")
 
     assert response.status_code == 200
+
+
+def test_create_app_builds_file_backed_event_store_from_config(tmp_path: Path) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text("{}", encoding="utf-8")
+    sam_fixture = tmp_path / "sam.json"
+    sam_fixture.write_text("{}", encoding="utf-8")
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text("{}", encoding="utf-8")
+    config_path = tmp_path / "agent_config.yaml"
+    config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture}",
+                f"  segmentation_fixture: {sam_fixture}",
+                f"  evidence_judge_fixture: {judge_fixture}",
+                "event_store:",
+                "  backend: file",
+                "  base_dir: data/event_store",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    app = create_app(config_path=config_path)
+
+    assert isinstance(app.state.event_store, FileBackedEventStore)
