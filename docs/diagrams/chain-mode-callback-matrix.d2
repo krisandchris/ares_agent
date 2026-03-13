@@ -1,0 +1,54 @@
+direction: right
+
+request: "POST /v1/inspection-items"
+decision: "orchestrator.chain_mode"
+
+vlm1_only: "vlm1_only"
+full: "full"
+
+vlm1_run: "Run VLM-1 only"
+full_run: "Run VLM-1 -> SAM3 -> VLM-2"
+
+prelim_switch_v1: "callback.send_preliminary?"
+prelim_switch_full: "callback.send_preliminary?"
+refined_switch_full: "callback.send_refined?"
+
+prelim_cb_v1: "Send preliminary callback"
+prelim_cb_full: "Send preliminary callback"
+refined_cb_full: "Send refined callback"
+
+prelim_response: "HTTP Response\nstage=preliminary"
+refined_response: "HTTP Response\nstage=refined"
+
+illegal_1: "Illegal Config\nsend_refined=true\nsend_preliminary=false"
+illegal_2: "Illegal Config\nchain_mode=vlm1_only\nsend_refined=true"
+
+request -> decision
+
+decision -> vlm1_only
+decision -> full
+
+vlm1_only -> vlm1_run
+vlm1_run -> prelim_switch_v1
+prelim_switch_v1 -> prelim_cb_v1: "true"
+prelim_switch_v1 -> prelim_response: "false"
+prelim_cb_v1 -> prelim_response
+
+full -> full_run
+full_run -> prelim_switch_full
+prelim_switch_full -> prelim_cb_full: "true"
+prelim_switch_full -> refined_switch_full: "false"
+prelim_cb_full -> refined_switch_full
+refined_switch_full -> refined_cb_full: "true"
+refined_switch_full -> refined_response: "false"
+refined_cb_full -> refined_response
+
+constraints: "Current rules:\n- callback flags do not change HTTP response stage\n- full always returns refined\n- vlm1_only always returns preliminary"
+decision -> constraints
+
+illegal_1.style.fill: "#ffdddd"
+illegal_2.style.fill: "#ffdddd"
+constraints.style.fill: "#eef6ff"
+
+prelim_switch_full -> illegal_1: "send_refined=true\nand send_preliminary=false"
+vlm1_only -> illegal_2: "send_refined=true"

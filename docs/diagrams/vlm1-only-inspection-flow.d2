@@ -1,0 +1,36 @@
+direction: down
+
+client: "Client\nPOST /v1/inspection-items"
+request: "Request Body\nimage_uri\ncamera_id\nlocation\ndevice_id\ntask_id\noccur_time"
+api: "FastAPI\n/v1/inspection-items"
+config: "AppConfig\nchain_mode=vlm1_only"
+resolver: "Image URI Resolver\nhttp(s) passthrough\nor s3:// -> presigned URL"
+scene_policy: "ScenePolicyResolver\ncamera_id + location"
+prompt: "PromptBuilder\nscene_hint\npriority_categories\nopen_risk_guidance\ncategory definitions"
+vlm1: "VLM-1"
+preliminary: "PreliminaryResult\nenvironment_analysis\nscene_elements\nevidence_reasoning\nsegmentation_targets\nrelation_hint\nviolation_category\nopen_risk_type\nconfidence"
+prelim_feedback: "PreliminaryEventFeedback\nstage=preliminary\nasync_enqueued=false"
+callback_switch: "callback.send_preliminary?"
+callback: "Callback Plugin\noptional backend callback"
+store: "Event Store\nsave preliminary payload"
+response: "HTTP Response\nstage=preliminary"
+query: "GET /v1/events/{event_id}"
+
+client -> request -> api
+api -> config
+config -> resolver
+api -> resolver: "resolve image_uri"
+resolver -> scene_policy
+scene_policy -> prompt
+prompt -> vlm1
+vlm1 -> preliminary
+preliminary -> prelim_feedback
+prelim_feedback -> callback_switch
+callback_switch -> callback: "true"
+callback_switch -> store: "false"
+callback -> store
+store -> response
+store -> query
+
+note_mode: "vlm1_only behavior:\n- stops after VLM-1\n- no SAM3\n- no VLM-2\n- no refined callback"
+config -> note_mode
