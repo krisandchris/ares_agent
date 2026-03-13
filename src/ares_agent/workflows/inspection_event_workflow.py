@@ -11,6 +11,7 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 
 from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.domain.evidence import EvidencePackage
+from ares_agent.infra.log_decorators import log_stage
 from ares_agent.services.feedback import build_preliminary_feedback, build_refined_feedback
 
 
@@ -184,6 +185,14 @@ def _preliminary_step_factory(
     runtime_config: object,
     async_enqueued: bool,
 ) -> Step:
+    @log_stage(
+        "preliminary",
+        field_extractor=lambda step_input: {
+            "event_id": generate_event_id(EventSeed.model_validate(step_input.input)),
+            "camera_id": EventSeed.model_validate(step_input.input).camera_id,
+            "location": EventSeed.model_validate(step_input.input).location,
+        },
+    )
     def run(step_input: StepInput) -> StepOutput:
         try:
             seed = EventSeed.model_validate(step_input.input)
@@ -217,6 +226,15 @@ def _preliminary_step_factory(
 
 
 def _segmentation_step_factory(*, segmentation_client: SegmentationClient) -> Step:
+    @log_stage(
+        "segmentation",
+        field_extractor=lambda step_input: {
+            "event_id": cast(
+                dict[str, Any],
+                step_input.get_step_content("preliminary"),
+            ).get("event_id"),
+        },
+    )
     def run(step_input: StepInput) -> StepOutput:
         try:
             preliminary_content = cast(
@@ -246,6 +264,15 @@ def _evidence_judge_step_factory(
     sink_plugin: SinkPlugin,
     runtime_config: object,
 ) -> Step:
+    @log_stage(
+        "evidence_judge",
+        field_extractor=lambda step_input: {
+            "event_id": cast(
+                dict[str, Any],
+                step_input.get_step_content("segmentation"),
+            ).get("event_id"),
+        },
+    )
     def run(step_input: StepInput) -> StepOutput:
         try:
             segmentation_content = cast(

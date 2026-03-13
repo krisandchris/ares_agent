@@ -1,0 +1,168 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+from fastapi.testclient import TestClient
+
+from ares_agent.api.app import create_app
+from ares_agent.infra.event_store import InMemoryEventStore
+
+
+def _parse_json_lines(output: str) -> list[dict[str, object]]:
+    parsed: list[dict[str, object]] = []
+    for line in output.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        parsed.append(json.loads(line))
+    return parsed
+
+
+def test_http_mode_request_logs_share_event_id_and_request_id(
+    tmp_path: Path,
+    capsys,
+) -> None:
+    prelim_fixture = tmp_path / "prelim.json"
+    prelim_fixture.write_text(
+        '{"environment_analysis":"street storefront scene","scene_elements":["storefront","goods","sidewalk"],"evidence_reasoning":"goods extend onto sidewalk","violation_category":"goods_blocking_road","open_risk_type":"","confidence":0.84,"segmentation_targets":["goods","storefront_entrance","sidewalk"],"relation_hint":"goods placed outside storefront and block sidewalk"}',
+        encoding="utf-8",
+    )
+    sam_fixture = tmp_path / "sam.json"
+    sam_fixture.write_text(
+        '{"overlay_image":"s3://mock/goods_overlay.png","mask_labels":["goods","storefront_entrance","sidewalk"],"relation_hint":"goods placed outside storefront and block sidewalk","segmentation_status":"ok","mask_uri":"s3://mock/goods_mask.png","crop_image_uris":["s3://mock/goods_crop.png"],"overlay_image_uris":["s3://mock/goods_overlay.png"],"evidence_basis_summary":"goods block sidewalk"}',
+        encoding="utf-8",
+    )
+    judge_fixture = tmp_path / "judge.json"
+    judge_fixture.write_text(
+        '{"final_category":"goods_blocking_road","final_confidence":0.89,"evidence_basis_match":true,"violation_relation_confirmed":true,"exception_excluded":true,"archive_readiness":true,"review_required":false,"rejection_reason":null,"violation_relation_summary":"goods block sidewalk"}',
+        encoding="utf-8",
+    )
+    stub_config_path = tmp_path / "stub_agent_config.yaml"
+    stub_config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture}",
+                f"  segmentation_fixture: {sam_fixture}",
+                f"  evidence_judge_fixture: {judge_fixture}",
+                "model_clients:",
+                "  mode: mock",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    stub_app = create_app(config_path=stub_config_path)
+    stub_client = TestClient(stub_app)
+
+    def local_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+        response = stub_client.post(url, json=payload, headers=headers)
+        return response.json()
+
+    callback_payloads: list[dict[str, object]] = []
+    http_config_path = tmp_path / "http_agent_config.yaml"
+    http_config_path.write_text(
+        "\n".join(
+            [
+                "callback:",
+                "  plugin: http_callback",
+                "  endpoint: https://backend.example/api/v1/events/callback",
+                "  send_preliminary: true",
+                "  send_refined: true",
+                "mock_clients:",
+                f"  preliminary_fixture: {prelim_fixture}",
+                f"  segmentation_fixture: {sam_fixture}",
+                f"  evidence_judge_fixture: {judge_fixture}",
+                "scene_policies:",
+                "  camera_defaults:",
+                "    right:",
+                "      enabled_categories:",
+                "        - road_occupying_vendor",
+                "      scene_hint: storefront-facing camera",
+                "  location_defaults:",
+                "    南山路:",
+                "      enabled_categories:",
+                "        - goods_blocking_road",
+                "prompts:",
+                "  preliminary:",
+                "    role_block: |",
+                "      ROLE BLOCK",
+                "    scene_activation_block_template: |",
+                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "    category_focus_block_template: |",
+                "      category_definitions:",
+                "      {category_definitions}",
+                "    reasoning_block: |",
+                "      REASONING BLOCK",
+                "    output_contract_block: |",
+                "      OUTPUT BLOCK",
+                "    user: |",
+                "      PRELIM USER",
+                "  judge:",
+                "    system: |",
+                "      JUDGE SYSTEM",
+                "    user: |",
+                "      JUDGE USER {category_code}",
+                "category_registry:",
+                "  road_occupying_vendor:",
+                "    definition: vendor occupies sidewalk",
+                "  goods_blocking_road:",
+                "    definition: goods on sidewalk",
+                "model_clients:",
+                "  mode: http",
+                "  preliminary:",
+                "    base_url: http://127.0.0.1:30000",
+                "    endpoint: /mock/vlm/preliminary",
+                "    model_name: inspection-vlm",
+                "  judge:",
+                "    base_url: http://127.0.0.1:30001",
+                "    endpoint: /mock/vlm/judge",
+                "    model_name: inspection-vlm",
+                "  sam3:",
+                "    base_url: http://127.0.0.1:8001",
+                "    endpoint: /mock/sam3/segment",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    client = TestClient(
+        create_app(
+            config_path=http_config_path,
+            callback_sender=lambda url, headers, payload: callback_payloads.append(payload) or {"status_code": 200},
+            event_store=InMemoryEventStore(),
+            model_requesters={
+                "preliminary": local_requester,
+                "judge": local_requester,
+                "sam3": local_requester,
+            },
+        )
+    )
+
+    response = client.post(
+        "/v1/inspection-items",
+        headers={"X-Request-ID": "req-test-001"},
+        json={
+            "image_uri": "s3://street/frame-100.jpg",
+            "camera_id": "right",
+            "location": "南山路",
+            "device_id": "dog-99",
+            "task_id": "patrol-sh-100",
+            "occur_time": "2026-03-09T12:00:00Z",
+        },
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    logs = _parse_json_lines(capsys.readouterr().out)
+    keyed_logs = [entry for entry in logs if entry.get("event_id") == body["event_id"]]
+
+    assert any(entry["event"] == "inspection.request.received" for entry in logs)
+    assert any(entry["event"] == "workflow.stage.started" and entry["stage"] == "preliminary" for entry in keyed_logs)
+    assert any(entry["event"] == "model.request.succeeded" and entry["target"] == "sam3" for entry in keyed_logs)
+    assert any(entry["event"] == "callback.succeeded" and entry["stage"] == "refined" for entry in keyed_logs)
+    assert any(entry["event"] == "inspection.request.completed" for entry in keyed_logs)
+    assert all(entry["request_id"] == "req-test-001" for entry in keyed_logs if "request_id" in entry)

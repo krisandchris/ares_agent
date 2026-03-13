@@ -6,8 +6,9 @@ from pathlib import Path
 import json
 from typing import Any, cast
 
+from asgi_correlation_id import CorrelationIdMiddleware, correlation_id
 from agno.workflow import Workflow
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 
 from ares_agent.api.schemas import EventFailureResponse, EventQueryResponse, InspectionIngestRequest
@@ -16,6 +17,8 @@ from ares_agent.domain.json_types import JsonObject
 from ares_agent.domain.payloads import StoredEventPayload
 from ares_agent.infra.config import AppConfig, load_config
 from ares_agent.infra.event_store import InMemoryEventStore
+from ares_agent.infra.log_context import bind_event_context, bind_log_context, clear_log_context
+from ares_agent.infra.logging import configure_logging, get_logger
 from ares_agent.model_clients.http_clients import (
     Requester,
     Sam3FastApiClient,
@@ -38,7 +41,6 @@ from ares_agent.workflows.inspection_event_workflow import (
     build_inspection_event_workflow,
     build_preliminary_only_workflow,
 )
-
 
 def _load_fixture_json(path: Path) -> JsonObject:
     return json.loads(path.read_text(encoding="utf-8"))
@@ -275,6 +277,9 @@ def create_app(
         app.state.app_config = load_config(config_path)
     else:
         app.state.app_config = load_config(Path.cwd() / "config/agent_config.example.yaml")
+    app.state.app_config.logging.service_name = app.state.app_config.agent.service_name
+    configure_logging(app.state.app_config.logging, force=True)
+    app_logger = get_logger(__name__)
     app.state.event_store = event_store or InMemoryEventStore()
     app.state.image_uri_resolver = image_uri_resolver or _build_image_uri_resolver_from_config(app.state.app_config)
     if workflow is not None:
@@ -293,6 +298,47 @@ def create_app(
             model_requesters=model_requesters,
             image_uri_resolver=app.state.image_uri_resolver,
         )
+
+    app.add_middleware(
+        CorrelationIdMiddleware,
+        header_name="X-Request-ID",
+        update_request_header=True,
+        validator=None,
+    )
+
+    @app.middleware("http")
+    async def logging_context_middleware(request: Request, call_next):
+        clear_log_context()
+        bind_log_context(
+            request_id=correlation_id.get() or request.headers.get("X-Request-ID"),
+        )
+        app_logger.info(
+            "inspection.request.received",
+            method=request.method,
+            path=request.url.path,
+        )
+        try:
+            response = await call_next(request)
+        except Exception as exc:
+            app_logger.exception(
+                "inspection.request.failed",
+                method=request.method,
+                path=request.url.path,
+                event_id=getattr(request.state, "event_id", None),
+                error_type=exc.__class__.__name__,
+                error_message=str(exc),
+            )
+            clear_log_context()
+            raise
+        app_logger.info(
+            "inspection.request.completed",
+            method=request.method,
+            path=request.url.path,
+            event_id=getattr(request.state, "event_id", None),
+            status_code=response.status_code,
+        )
+        clear_log_context()
+        return response
 
     @app.get("/healthz")
     async def healthz() -> dict[str, str]:
@@ -340,14 +386,26 @@ def create_app(
 
     @app.post("/v1/inspection-items", response_model=None)
     async def ingest_inspection_item(
+        http_request: Request,
         request: InspectionIngestRequest,
     ) -> JSONResponse | StoredEventPayload:
         seed = EventSeed.model_validate(request.model_dump())
+        event_id = bind_event_context(seed=seed)
+        http_request.state.event_id = event_id
+        bind_log_context(chain_mode=app.state.app_config.orchestrator.chain_mode)
         workflow_output = app.state.inspection_workflow.run(input=seed)
         if not _workflow_succeeded(workflow_output):
             failure_payload = _build_failure_payload(seed, workflow_output)
             app.state.event_store.save(failure_payload["event_id"], failure_payload)
             status_code = 500 if failure_payload["error_type"] == "FileNotFoundError" else 502
+            app_logger.error(
+                "inspection.request.failed",
+                event_id=failure_payload["event_id"],
+                failed_step=failure_payload.get("failed_step"),
+                error_type=failure_payload.get("error_type"),
+                error_message=failure_payload.get("error_message"),
+                status_code=status_code,
+            )
             return JSONResponse(status_code=status_code, content=failure_payload)
         payload = cast(StoredEventPayload, dict(workflow_output.content))
         app.state.event_store.save(payload["event_id"], payload)

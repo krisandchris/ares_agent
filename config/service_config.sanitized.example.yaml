@@ -4,6 +4,15 @@ config_files:
 agent:
   service_name: street-inspection-agent
 
+logging:
+  enabled: true
+  level: INFO
+  json: true
+  include_request_id: true
+  include_event_id: true
+  log_model_payload_summary: true
+  log_callback_payload_summary: true
+
 orchestrator:
   enable_async_refine: false
   chain_mode: vlm1_only

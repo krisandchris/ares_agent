@@ -8,10 +8,23 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, Field, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
 
 
 class AgentSettings(BaseModel):
+    service_name: str = "street-inspection-agent"
+
+
+class LoggingSettings(BaseModel):
+    model_config = ConfigDict(populate_by_name=True)
+
+    enabled: bool = True
+    level: str = "INFO"
+    json_output: bool = Field(default=True, alias="json")
+    include_request_id: bool = True
+    include_event_id: bool = True
+    log_model_payload_summary: bool = True
+    log_callback_payload_summary: bool = True
     service_name: str = "street-inspection-agent"
 
 
@@ -133,6 +146,7 @@ class ModelClientSettings(BaseModel):
 class AppConfig(BaseModel):
     config_files: ConfigFileSettings = ConfigFileSettings()
     agent: AgentSettings = AgentSettings()
+    logging: LoggingSettings = LoggingSettings()
     orchestrator: OrchestratorSettings = OrchestratorSettings()
     callback: CallbackSettings
     mock_clients: MockClientSettings

@@ -7,10 +7,12 @@ import time
 from dataclasses import dataclass
 from typing import Callable, TypedDict, cast
 from urllib import request
+from urllib.parse import urlparse
 
 from pydantic import BaseModel
 
 from ares_agent.domain.json_types import JsonObject
+from ares_agent.infra.logging import get_logger
 
 
 Sender = Callable[[str, dict[str, str], JsonObject], JsonObject]
@@ -98,10 +100,40 @@ class HttpCallbackPlugin:
         if self.auth_token:
             headers["Authorization"] = f"Bearer {self.auth_token}"
         last_result: CallbackResult | None = None
+        event_id = payload.get("event_id")
+        stage = payload.get("stage")
+        endpoint_host = urlparse(self.endpoint).netloc
+        get_logger(__name__).info(
+            "callback.started",
+            event_id=event_id,
+            stage=stage,
+            endpoint_host=endpoint_host,
+        )
         for attempt in range(1, self.max_attempts + 1):
             response = self.sender(self.endpoint, headers, payload)
             last_result = _parse_callback_response(response)
+            get_logger(__name__).info(
+                "callback.attempt",
+                event_id=event_id,
+                stage=stage,
+                endpoint_host=endpoint_host,
+                retry_attempt=attempt,
+                callback_status_code=last_result.status_code,
+                retryable=last_result.retryable,
+                backend_trace_id=last_result.backend_trace_id,
+            )
             if last_result.success or not last_result.retryable or attempt == self.max_attempts:
+                get_logger(__name__).info(
+                    "callback.succeeded" if last_result.success else "callback.failed",
+                    event_id=event_id,
+                    stage=stage,
+                    endpoint_host=endpoint_host,
+                    callback_status_code=last_result.status_code,
+                    retry_attempt=attempt,
+                    retryable=last_result.retryable,
+                    backend_trace_id=last_result.backend_trace_id,
+                    error_message=last_result.error_message,
+                )
                 return last_result
             time.sleep(self.backoff_ms / 1000)
         assert last_result is not None

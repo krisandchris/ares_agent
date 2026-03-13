@@ -5,9 +5,11 @@ from __future__ import annotations
 import json
 from typing import Callable, TypedDict, cast
 from urllib import request
+from urllib.parse import urlparse
 
-from ares_agent.domain.events import EventSeed
+from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.domain.json_types import JsonObject
+from ares_agent.infra.log_decorators import log_external_call
 from ares_agent.prompts.builders import PromptBuilder, PromptMessage
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
@@ -95,6 +97,16 @@ class SglangVlmPreliminaryClient:
         )
         self.prompt_builder = prompt_builder
 
+    @log_external_call(
+        "vlm_preliminary",
+        field_extractor=lambda self, seed: {
+            "event_id": generate_event_id(seed),
+            "camera_id": seed.camera_id,
+            "location": seed.location,
+            "endpoint_host": urlparse(self.endpoint).netloc,
+            "model_name": self.model_name,
+        },
+    )
     def analyze(self, seed: EventSeed) -> PreliminaryResult:
         payload: PreliminaryRequestPayload = {
             "model": self.model_name,
@@ -140,6 +152,15 @@ class SglangVlmJudgeClient:
         )
         self.prompt_builder = prompt_builder
 
+    @log_external_call(
+        "vlm_judge",
+        field_extractor=lambda self, **kwargs: {
+            "event_id": kwargs.get("event_id"),
+            "endpoint_host": urlparse(self.endpoint).netloc,
+            "model_name": self.model_name,
+            "category_code": kwargs.get("category_code"),
+        },
+    )
     def judge(
         self,
         *,
@@ -193,6 +214,14 @@ class Sam3FastApiClient:
             )
         )
 
+    @log_external_call(
+        "sam3",
+        field_extractor=lambda self, image_uri, targets: {
+            "image_uri_scheme": image_uri.split("://", 1)[0] if "://" in image_uri else "local",
+            "target_count": len(targets),
+            "endpoint_host": urlparse(self.endpoint).netloc,
+        },
+    )
     def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
         payload: Sam3RequestPayload = {
             "image_uri": image_uri,

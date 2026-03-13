@@ -1,8 +1,19 @@
 import pytest
 
 import ares_agent.plugins.http_callback as http_callback
+from ares_agent.infra.logging import configure_logging
 from ares_agent.plugins.http_callback import HttpCallbackPlugin, _default_sender, _parse_callback_response
 from ares_agent.services.feedback import build_preliminary_feedback, build_refined_feedback
+
+
+def _parse_json_lines(output: str) -> list[dict[str, object]]:
+    parsed: list[dict[str, object]] = []
+    for line in output.splitlines():
+        line = line.strip()
+        if not line.startswith("{"):
+            continue
+        parsed.append(__import__("json").loads(line))
+    return parsed
 
 
 def test_http_callback_plugin_sends_serialized_preliminary_payload() -> None:
@@ -171,6 +182,48 @@ def test_http_callback_plugin_returns_failed_result_after_retry_exhaustion(monke
     assert result.status_code == 503
     assert result.retryable is True
     assert result.error_message == "backend unavailable"
+
+
+def test_http_callback_plugin_logs_retry_attempts_and_final_success(
+    capsys: pytest.CaptureFixture[str],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    configure_logging(force=True)
+    monkeypatch.setattr(http_callback.time, "sleep", lambda _seconds: None)
+    attempts: list[int] = []
+
+    def flaky_sender(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+        attempts.append(1)
+        if len(attempts) < 3:
+            return {"status_code": 503, "error_message": "backend unavailable"}
+        return {"status_code": 200, "backend_trace_id": "trace-recovered"}
+
+    plugin = HttpCallbackPlugin(
+        endpoint="https://backend.example/api/v1/events/callback",
+        sender=flaky_sender,
+        max_attempts=3,
+        backoff_ms=10,
+    )
+    feedback = build_preliminary_feedback(
+        event_id="evt_123",
+        camera_id="front",
+        location="南山路",
+        violation_category="road_occupying_vendor",
+        open_risk_type="",
+        confidence=0.91,
+        async_enqueued=True,
+    )
+
+    result = plugin.send(feedback, runtime_config={"callback": {"send_preliminary": True}})
+
+    logs = _parse_json_lines(capsys.readouterr().out)
+    attempt_logs = [entry for entry in logs if entry["event"] == "callback.attempt"]
+
+    assert result.success is True
+    assert [entry["retry_attempt"] for entry in attempt_logs] == [1, 2, 3]
+    assert all(entry["event_id"] == "evt_123" for entry in attempt_logs)
+    assert logs[-1]["event"] == "callback.succeeded"
+    assert logs[-1]["callback_status_code"] == 200
 
 
 def test_default_sender_passes_timeout_to_urlopen(monkeypatch: pytest.MonkeyPatch) -> None:
