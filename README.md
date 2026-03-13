@@ -32,6 +32,7 @@ Not implemented yet:
 ## Documentation
 
 - [项目结构设计文档](./docs/project-structure-design.md)
+- [项目开发日志](./docs/project-development-log.md)
 - [剩余待办与优化点](./docs/remaining-todo-and-optimizations.md)
 - [街道巡检后端 Agent 设计](./docs/plans/2026-03-09-street-inspection-agent-design.md)
 - [框架选型记录](./docs/plans/2026-03-09-agent-framework-selection-among-agentscope-dify-agno.md)
