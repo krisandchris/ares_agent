@@ -75,7 +75,8 @@ def test_http_flow_success_and_query_roundtrip(tmp_path: Path) -> None:
 
     assert query_response.status_code == 200
     queried = query_response.json()
-    assert queried["result"]["refined_feedback"]["final_category"] == "motor_vehicle_illegal_parking"
+    assert queried["result"]["summary"] == {"candidate_count": 1, "refined_count": 1, "failed_count": 0}
+    assert queried["result"]["sub_events"][0]["refined_feedback"]["final_category"] == "motor_vehicle_illegal_parking"
     assert [payload["stage"] for payload in callback_payloads] == ["preliminary", "refined"]
 
 

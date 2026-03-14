@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 import json
-from typing import Callable, TypedDict, cast
+from typing import Callable, NotRequired, TypedDict, cast
 from urllib import request
 from urllib.parse import urlparse
 
 from ares_agent.domain.events import EventSeed, generate_event_id
 from ares_agent.domain.json_types import JsonObject
 from ares_agent.infra.log_decorators import log_external_call
+from ares_agent.infra.log_context import get_bound_log_context_value
 from ares_agent.prompts.builders import PromptBuilder, PromptMessage
 from ares_agent.workflows.inspection_event_workflow import (
     EvidenceJudgeResult,
@@ -18,11 +19,11 @@ from ares_agent.workflows.inspection_event_workflow import (
 )
 
 
-class PreliminaryRequestPayload(TypedDict, total=False):
+class PreliminaryRequestPayload(TypedDict):
     model: str
     messages: list[PromptMessage]
     temperature: float
-    max_tokens: int
+    max_tokens: NotRequired[int]
 
 
 class Sam3RequestPayload(TypedDict):
@@ -100,7 +101,7 @@ class SglangVlmPreliminaryClient:
     @log_external_call(
         "vlm_preliminary",
         field_extractor=lambda self, seed: {
-            "event_id": generate_event_id(seed),
+            "event_id": cast(str, get_bound_log_context_value("event_id")) or generate_event_id(seed),
             "camera_id": seed.camera_id,
             "location": seed.location,
             "endpoint_host": urlparse(self.endpoint).netloc,

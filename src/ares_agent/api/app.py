@@ -38,6 +38,11 @@ from ares_agent.prompts.builders import (
 )
 from ares_agent.services.image_uri_resolver import ImageUriResolver, MinioS3UriResolver, resolve_image_uri
 from ares_agent.workflows.inspection_event_workflow import (
+    EvidenceJudgeClient,
+    PreliminaryClient,
+    PreliminaryResult,
+    SegmentationClient,
+    SegmentationResult,
     build_inspection_event_workflow,
     build_preliminary_only_workflow,
 )
@@ -74,6 +79,7 @@ def _build_workflow_from_config(
                 "callback": {
                     "send_preliminary": config.callback.send_preliminary,
                     "send_refined": config.callback.send_refined,
+                    "block_on_preliminary_failure": config.callback.block_on_preliminary_failure,
                 }
             },
         )
@@ -99,6 +105,7 @@ def _build_workflow_from_config(
             "callback": {
                 "send_preliminary": config.callback.send_preliminary,
                 "send_refined": config.callback.send_refined,
+                "block_on_preliminary_failure": config.callback.block_on_preliminary_failure,
             }
         },
     )
@@ -109,7 +116,7 @@ def _build_preliminary_client_from_config(
     *,
     model_requester: Requester | None = None,
     image_uri_resolver: ImageUriResolver | None = None,
-):
+) -> PreliminaryClient:
     if config.model_clients.mode == "http":
         prompt_builder = _build_prompt_builder_from_config(config)
         if config.model_clients.preliminary is None:
@@ -161,7 +168,7 @@ def _build_model_clients_from_config(
     *,
     model_requesters: dict[str, Requester] | None = None,
     image_uri_resolver: ImageUriResolver | None = None,
-):
+) -> tuple[PreliminaryClient, SegmentationClient, EvidenceJudgeClient]:
     model_requesters = model_requesters or {}
     if config.model_clients.mode == "http":
         if config.orchestrator.chain_mode == "vlm1_only":
@@ -404,7 +411,7 @@ def create_app(
         if not _workflow_succeeded(workflow_output):
             failure_payload = _build_failure_payload(seed, workflow_output)
             app.state.event_store.save(failure_payload["event_id"], failure_payload)
-            status_code = 500 if failure_payload["error_type"] == "FileNotFoundError" else 502
+            status_code = 500 if failure_payload.get("error_type") == "FileNotFoundError" else 502
             app_logger.error(
                 "inspection.request.failed",
                 event_id=failure_payload["event_id"],
@@ -462,11 +469,11 @@ def _parse_error(error_text: str) -> tuple[str, str]:
 
 
 class _ResolvingPreliminaryClient:
-    def __init__(self, *, client: object, image_uri_resolver: ImageUriResolver | None) -> None:
+    def __init__(self, *, client: PreliminaryClient, image_uri_resolver: ImageUriResolver | None) -> None:
         self.client = client
         self.image_uri_resolver = image_uri_resolver
 
-    def analyze(self, seed: EventSeed):
+    def analyze(self, seed: EventSeed) -> PreliminaryResult:
         resolved_seed = seed
         if self.image_uri_resolver is not None:
             resolved_seed = seed.model_copy(
@@ -476,11 +483,11 @@ class _ResolvingPreliminaryClient:
 
 
 class _ResolvingSegmentationClient:
-    def __init__(self, *, client: object, image_uri_resolver: ImageUriResolver | None) -> None:
+    def __init__(self, *, client: SegmentationClient, image_uri_resolver: ImageUriResolver | None) -> None:
         self.client = client
         self.image_uri_resolver = image_uri_resolver
 
-    def segment(self, image_uri: str, targets: list[str]):
+    def segment(self, image_uri: str, targets: list[str]) -> SegmentationResult:
         resolved_uri = resolve_image_uri(image_uri, resolver=self.image_uri_resolver)
         return self.client.segment(resolved_uri, targets)
 

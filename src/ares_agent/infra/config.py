@@ -55,6 +55,7 @@ class CallbackSettings(BaseModel):
     timeout_ms: int = 3000
     send_preliminary: bool = True
     send_refined: bool = True
+    block_on_preliminary_failure: bool = True
     retry: RetrySettings = RetrySettings()
 
     @model_validator(mode="after")
@@ -259,5 +260,6 @@ def _resolve_callback_settings(settings: CallbackSettings) -> CallbackSettings:
         timeout_ms=settings.timeout_ms,
         send_preliminary=settings.send_preliminary,
         send_refined=settings.send_refined,
+        block_on_preliminary_failure=settings.block_on_preliminary_failure,
         retry=retry,
     )

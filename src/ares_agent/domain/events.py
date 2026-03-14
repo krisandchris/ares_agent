@@ -35,3 +35,16 @@ def generate_event_id(seed: EventSeed) -> str:
     raw = f"{seed.image_uri}|{seed.camera_id}|{seed.location}|{seed.device_id}|{seed.task_id}|{seed.occur_time}"
     digest = sha256(raw.encode("utf-8")).hexdigest()[:24]
     return f"evt_{digest}"
+
+
+def generate_sub_event_id(
+    *,
+    event_id: str,
+    violation_category: str,
+    relation_hint: str,
+    candidate_index: int,
+) -> str:
+    """Generate a stable child id for one candidate violation under the same root event."""
+    raw = f"{event_id}|{candidate_index}|{violation_category}|{relation_hint}"
+    digest = sha256(raw.encode("utf-8")).hexdigest()[:24]
+    return f"sub_evt_{digest}"

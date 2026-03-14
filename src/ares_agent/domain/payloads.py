@@ -8,6 +8,8 @@ from typing import Any, NotRequired, TypedDict
 class StoredEventPayload(TypedDict):
     event_id: str
     stage: str
+    summary: NotRequired[dict[str, int]]
+    sub_events: NotRequired[list[dict[str, Any]]]
     preliminary_feedback: NotRequired[dict[str, Any]]
     refined_feedback: NotRequired[dict[str, Any]]
     evidence_package: NotRequired[dict[str, Any]]

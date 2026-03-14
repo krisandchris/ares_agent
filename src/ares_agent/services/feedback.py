@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 
 class PreliminaryEventFeedback(BaseModel):
     event_id: str
+    sub_event_id: str | None = None
     camera_id: str
     location: str
     stage: Literal["preliminary"] = "preliminary"
@@ -20,6 +21,7 @@ class PreliminaryEventFeedback(BaseModel):
 
 class RefinedEventFeedback(BaseModel):
     event_id: str
+    sub_event_id: str | None = None
     camera_id: str
     location: str
     stage: Literal["refined"] = "refined"
@@ -33,6 +35,7 @@ class RefinedEventFeedback(BaseModel):
 def build_preliminary_feedback(
     *,
     event_id: str,
+    sub_event_id: str | None = None,
     camera_id: str,
     location: str,
     violation_category: str,
@@ -43,6 +46,7 @@ def build_preliminary_feedback(
     """Create the fast-path payload shared with the management service."""
     return PreliminaryEventFeedback(
         event_id=event_id,
+        sub_event_id=sub_event_id,
         camera_id=camera_id,
         location=location,
         violation_category=violation_category,
@@ -55,6 +59,7 @@ def build_preliminary_feedback(
 def build_refined_feedback(
     *,
     event_id: str,
+    sub_event_id: str | None = None,
     camera_id: str,
     location: str,
     final_category: str,
@@ -66,6 +71,7 @@ def build_refined_feedback(
     """Create the refined payload that updates the same logical event."""
     return RefinedEventFeedback(
         event_id=event_id,
+        sub_event_id=sub_event_id,
         camera_id=camera_id,
         location=location,
         final_category=final_category,

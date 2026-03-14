@@ -115,19 +115,31 @@ prompts:
     reasoning_block: |
       Always analyze the full environment before deciding the violation category.
       Do not judge from a single object alone. Use spatial relationships between objects and environment.
-      segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets.
+      If multiple distinct violations are visible, output multiple candidates rather than merging them into one.
+      segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets for each candidate.
       If the image is occluded, blurry, distant, or incomplete, mention that in the analysis and lower confidence.
-      If no violation or risk exists, output violation_category="none".
+      If no violation or risk exists, output one candidate with violation_category="none".
     output_contract_block: |
       You must output JSON only, in this exact order:
       1. environment_analysis
       2. scene_elements
-      3. evidence_reasoning
-      4. segmentation_targets
-      5. relation_hint
-      6. violation_category
-      7. open_risk_type
-      8. confidence
+      3. candidates
+
+      Each candidate must include:
+      - evidence_reasoning
+      - relation_hint
+      - segmentation_targets
+      - violation_category
+      - open_risk_type
+      - confidence
+
+      Rules:
+      - violation_category: one of the standard categories, open_risk, or none
+      - open_risk_type: non-empty only when violation_category=open_risk
+      - confidence: float in [0, 1]
+      - keep different violations as separate candidates
+      - do not duplicate the same visual evidence under multiple categories
+      - if violation_category=none, output exactly one candidate with empty segmentation_targets and empty relation_hint
     user: |
       Analyze this inspection image under the configured scene policy and output the required JSON.
   judge:

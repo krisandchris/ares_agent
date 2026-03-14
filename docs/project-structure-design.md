@@ -2,10 +2,10 @@
 
 ## 1. 文档目的
 
-本文档说明当前 `ares_agent` 项目的目录结构、职责分层、核心数据流和扩展点。  
+本文档说明当前 `ares_agent` 项目的目录结构、职责分层、核心数据流和扩展点。
 当前仓库定位为一个 `mocked closed-loop demo`，重点是验证：
 
-- `FastAPI -> Workflow -> VLM-1 -> SAM3 -> VLM-2 -> callback`
+- `FastAPI -> Workflow -> VLM-1 candidates -> per-candidate SAM3 -> per-candidate VLM-2 -> callback`
 - `SAM3` 与 `VLM-2` 的接口契约
 - mock / http-stub / 配置驱动 启动方式
 
@@ -69,13 +69,15 @@ ares_agent/
 - `inspection_event_workflow.py`
   是当前系统的核心。负责编排：
   - `VLM-1 preliminary`
-  - `SAM3 segmentation`
-  - `VLM-2 judge`
-  - preliminary / refined callback
+  - candidate fan-out
+  - per-candidate `SAM3 segmentation`
+  - per-candidate `VLM-2 judge`
+  - per-candidate preliminary / refined callback
 
 这层定义了当前的核心中间模型：
 
 - `PreliminaryResult`
+- `PreliminaryCandidate`
 - `SegmentationResult`
 - `EvidenceJudgeResult`
 
@@ -133,7 +135,11 @@ ares_agent/
   配置加载与路径解析
 
 - `event_store.py`
-  当前是内存态事件仓库，用于保存最新事件结果
+  当前支持：
+  - 内存态事件仓库
+  - 本地文件落盘事件仓库
+
+  保存的是根事件 payload，内部可包含多个 `sub_events`
 
 ### 3.7 `src/ares_agent/domain`
 
@@ -151,27 +157,35 @@ ares_agent/
 2. 解析 `image_uri + metadata`
 3. 进入 `InspectionEventWorkflow`
 4. `VLM-1` 输出：
-   - `violation_category`
-   - `segmentation_targets`
-   - `relation_hint`
-   - 以及环境分析字段
-5. `SAM3` 接收：
+   - `environment_analysis`
+   - `scene_elements`
+   - `candidates[]`
+   - 每个 candidate 包含：
+     - `sub_event_id`
+     - `evidence_reasoning`
+     - `relation_hint`
+     - `segmentation_targets`
+     - `violation_category`
+     - `open_risk_type`
+     - `confidence`
+5. workflow 对每个 candidate 进行 fan-out
+6. `SAM3` 接收：
    - `image_uri`
-   - `targets`
-6. `SAM3` 输出：
+   - 当前 candidate 的 `targets`
+7. `SAM3` 输出：
    - `overlay_image`
    - `mask_labels`
    - `relation_hint`
    - `segmentation_status`
    - `evidence_basis_summary`
-7. `VLM-2` 消费：
+8. `VLM-2` 消费：
    - `overlay_image`
-   - `category_code`
+   - 当前 candidate 的 `category_code`
    - `mask_labels`
    - `relation_hint`
    - `evidence_basis_summary`
-8. callback 回传
-9. 结果写入 `event_store`
+9. 每个 candidate 单独 callback 回传
+10. 根事件结果写入 `event_store`
 
 ## 5. 当前确定的设计约束
 
@@ -179,14 +193,21 @@ ares_agent/
 
 - 先分析环境，再给结论
 - 输出标准化 JSON
-- 为 `SAM3` 提供 `segmentation_targets`
+- 输出多个候选时，每个 candidate 都要有独立的：
+  - `evidence_reasoning`
+  - `relation_hint`
+  - `segmentation_targets`
+  - `violation_category`
+  - `open_risk_type`
+  - `confidence`
+- 为每个 candidate 的下游 `SAM3` 提供独立 `segmentation_targets`
 - `system/user` prompt 都由配置文件提供
 - 原图通过多模态 `image_url` 单独传入
 
 ### 5.2 SAM3
 
 - 输入以 `image_uri` 为主
-- 一次性接收候选词
+- 一次只接收单个 candidate 的目标集合
 - 不做多轮回退
 - 若失败，按失败事件处理
 
@@ -212,6 +233,8 @@ ares_agent/
 - callback 真正的超时重试
 - 事件状态持久化
 - 人工复核闭环
+- `sub_event_id` 的独立查询接口
+- root event / sub event 更明确的持久化索引
 
 ## 7. 结构演进建议
 

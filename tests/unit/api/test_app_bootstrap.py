@@ -100,8 +100,9 @@ def test_create_app_bootstraps_workflow_from_config_and_fixture_paths(tmp_path: 
 
     assert response.status_code == 200
     body = response.json()
-    assert body["refined_feedback"]["final_category"] == "goods_blocking_road"
-    assert body["judgment"]["final_confidence"] == 0.88
+    assert body["summary"] == {"candidate_count": 1, "refined_count": 1, "failed_count": 0}
+    assert body["sub_events"][0]["refined_feedback"]["final_category"] == "goods_blocking_road"
+    assert body["sub_events"][0]["judgment"]["final_confidence"] == 0.88
     assert [payload["stage"] for payload in callback_payloads] == ["preliminary", "refined"]
 
 

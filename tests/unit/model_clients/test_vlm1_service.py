@@ -4,14 +4,16 @@ import pytest
 from fastapi.testclient import TestClient
 
 from ares_agent.api.app import create_app
+from ares_agent.domain.json_types import JsonObject
 from ares_agent.domain.events import EventSeed
 from ares_agent.model_clients.http_clients import SglangVlmPreliminaryClient
 from ares_agent.prompts.builders import DefaultInspectionPromptBuilder
+from type_helpers import RequesterPayload, json_object
 
 
 def test_vlm1_client_parses_standard_violation_result() -> None:
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
-        return {
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -28,7 +30,7 @@ def test_vlm1_client_parses_standard_violation_result() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmPreliminaryClient(
         endpoint="/mock/vlm/preliminary",
@@ -54,8 +56,8 @@ def test_vlm1_client_parses_standard_violation_result() -> None:
 
 
 def test_vlm1_client_parses_open_risk_result() -> None:
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
-        return {
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -72,7 +74,7 @@ def test_vlm1_client_parses_open_risk_result() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmPreliminaryClient(
         endpoint="/mock/vlm/preliminary",
@@ -97,8 +99,8 @@ def test_vlm1_client_parses_open_risk_result() -> None:
 
 
 def test_vlm1_client_parses_none_result() -> None:
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
-        return {
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -115,7 +117,7 @@ def test_vlm1_client_parses_none_result() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmPreliminaryClient(
         endpoint="/mock/vlm/preliminary",
@@ -140,9 +142,68 @@ def test_vlm1_client_parses_none_result() -> None:
     assert result.segmentation_targets == []
 
 
+def test_vlm1_client_parses_multiple_candidates_and_keeps_first_candidate_as_primary_view() -> None:
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
+            "choices": [
+                {
+                    "message": {
+                        "content": {
+                            "environment_analysis": "storefront scene with sidewalk blockage and mask issue",
+                            "scene_elements": ["goods", "sidewalk", "staff", "counter"],
+                            "candidates": [
+                                {
+                                    "sub_event_id": "sub_evt_goods",
+                                    "violation_category": "goods_blocking_road",
+                                    "open_risk_type": "",
+                                    "confidence": 0.84,
+                                    "evidence_reasoning": "goods block pedestrian passage",
+                                    "segmentation_targets": ["goods", "storefront_entrance", "sidewalk"],
+                                    "relation_hint": "goods placed outside storefront and block sidewalk",
+                                },
+                                {
+                                    "sub_event_id": "sub_evt_mask",
+                                    "violation_category": "staff_not_wear_mask",
+                                    "open_risk_type": "",
+                                    "confidence": 0.66,
+                                    "evidence_reasoning": "staff appears to operate without mask",
+                                    "segmentation_targets": ["staff", "mask", "counter"],
+                                    "relation_hint": "catering staff visible without mask",
+                                },
+                            ],
+                        }
+                    }
+                }
+            ]
+        })
+
+    client = SglangVlmPreliminaryClient(
+        endpoint="/mock/vlm/preliminary",
+        model_name="inspection-vlm",
+        requester=fake_requester,
+        prompt_builder=DefaultInspectionPromptBuilder(),
+    )
+
+    result = client.analyze(
+        EventSeed(
+            image_uri="s3://street/frame-103.jpg",
+            camera_id="left",
+            location="水坊街",
+            device_id="dog-33",
+            task_id="patrol-sh-103",
+            occur_time="2026-03-10T09:10:00Z",
+        )
+    )
+
+    assert len(result.candidates) == 2
+    assert result.violation_category == "goods_blocking_road"
+    assert result.segmentation_targets == ["goods", "storefront_entrance", "sidewalk"]
+    assert result.candidates[1].violation_category == "staff_not_wear_mask"
+
+
 def test_vlm1_client_normalizes_null_open_risk_type_for_non_open_risk() -> None:
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
-        return {
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -159,7 +220,7 @@ def test_vlm1_client_normalizes_null_open_risk_type_for_non_open_risk() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmPreliminaryClient(
         endpoint="/mock/vlm/preliminary",
@@ -183,9 +244,55 @@ def test_vlm1_client_normalizes_null_open_risk_type_for_non_open_risk() -> None:
     assert result.open_risk_type == ""
 
 
+def test_vlm1_client_normalizes_string_segmentation_targets_into_list() -> None:
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
+            "choices": [
+                {
+                    "message": {
+                        "content": {
+                            "environment_analysis": "sidewalk scene with one parked bicycle",
+                            "scene_elements": ["yellow_bicycle", "sidewalk"],
+                            "candidates": [
+                                {
+                                    "violation_category": "nonmotor_vehicle_illegal_parking",
+                                    "open_risk_type": "",
+                                    "confidence": 0.95,
+                                    "evidence_reasoning": "yellow bicycle occupies sidewalk",
+                                    "segmentation_targets": "yellow_bicycle, sidewalk_area",
+                                    "relation_hint": "nonmotor_vehicle_occupies_walkway",
+                                }
+                            ],
+                        }
+                    }
+                }
+            ]
+        })
+
+    client = SglangVlmPreliminaryClient(
+        endpoint="/mock/vlm/preliminary",
+        model_name="inspection-vlm",
+        requester=fake_requester,
+        prompt_builder=DefaultInspectionPromptBuilder(),
+    )
+
+    result = client.analyze(
+        EventSeed(
+            image_uri="s3://street/frame-107.jpg",
+            camera_id="front",
+            location="南山路",
+            device_id="dog-36",
+            task_id="patrol-sh-107",
+            occur_time="2026-03-10T09:25:00Z",
+        )
+    )
+
+    assert result.segmentation_targets == ["yellow_bicycle", "sidewalk_area"]
+
+
 def test_vlm1_client_rejects_missing_required_fields() -> None:
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
-        return {
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -199,7 +306,7 @@ def test_vlm1_client_rejects_missing_required_fields() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmPreliminaryClient(
         endpoint="/mock/vlm/preliminary",

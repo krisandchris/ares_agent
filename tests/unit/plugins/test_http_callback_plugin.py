@@ -275,3 +275,12 @@ def test_parse_callback_response_normalizes_typed_fields() -> None:
     assert parsed.backend_trace_id == "123"
     assert parsed.error_message == "backend unavailable"
     assert parsed.retryable is True
+
+
+def test_parse_callback_response_rejects_missing_status_code() -> None:
+    with pytest.raises(KeyError, match="status_code"):
+        _parse_callback_response(
+            {
+                "backend_trace_id": "trace-only",
+            }
+        )

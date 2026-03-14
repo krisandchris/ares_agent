@@ -14,7 +14,7 @@
 
 ## 2. 项目起点
 
-项目最初从近乎空白目录开始，没有现成代码或文档可直接继承。  
+项目最初从近乎空白目录开始，没有现成代码或文档可直接继承。
 用户已具备的核心资产只有两类模型能力：
 
 - 巡检数据微调后的 `VLM`
@@ -31,7 +31,7 @@
 
 ### 3.1 体系结构收敛
 
-项目最初围绕“城市街道巡检机器狗”的视觉后端 Agent 设计展开。  
+项目最初围绕“城市街道巡检机器狗”的视觉后端 Agent 设计展开。
 在多轮讨论后，架构从泛化的智能体设想逐步收敛成：
 
 - 分层编排式后端
@@ -247,10 +247,55 @@
 - `s3://...` -> MinIO presigned URL 支持
 - `Gradio VLM-1 tester`
 - 较高覆盖率的单元测试
+- 结构化链路日志
+- 可选文件落盘 `event_store`
+- VLM-1 多 candidate 输出
+- 共享 `event_id` + 每个 candidate 的 `sub_event_id`
+- per-candidate fan-out 到 `SAM3 -> VLM-2 -> callback`
 
 当前仓库已经不再是最初的原型，而是一套结构明确、边界清晰、可继续推进真实联调的后端基线。
 
-## 10. 开发日志维护原则
+## 10. 最近新增能力
+
+### 10.1 结构化日志
+
+项目新增了基于 `structlog` 的结构化 JSON 日志，并接入：
+
+- request lifecycle
+- workflow stages
+- model clients
+- callback retry
+- event store
+
+日志关联方式为：
+
+- `event_id` 作为根链路键
+- `sub_event_id` 作为单 candidate 链路键
+- `request_id` 作为 HTTP 层关联键
+
+### 10.2 本地文件落盘 Event Store
+
+项目新增了可选文件落盘 event store。
+
+- 默认仍为内存态
+- 配置为 `file` 时，会将根事件 payload 落到本地硬盘
+- 文件路径以 `event_id` 为根键组织
+
+### 10.3 多违规 Preliminary 与 Fan-Out
+
+项目近期最大的协议变化，是将原来的“单类别 preliminary”扩展为：
+
+- `VLM-1` 输出 `candidates[]`
+- 每个 candidate 具备独立 `sub_event_id`
+- 后续 `SAM3 / VLM-2 / callback` 仍保持单类别消费
+- workflow 在 preliminary 之后执行 per-candidate fan-out
+
+为了保持兼容：
+
+- 顶层 root payload 仍保留首个 candidate 的兼容视图
+- 完整多 candidate 结果通过 `sub_events` 提供
+
+## 11. 开发日志维护原则
 
 后续如果项目继续推进，建议：
 

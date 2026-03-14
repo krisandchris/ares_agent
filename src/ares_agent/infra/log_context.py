@@ -54,3 +54,7 @@ def bind_event_context(
         location=resolved_location,
     )
     return resolved_event_id
+
+
+def get_bound_log_context_value(key: str) -> object | None:
+    return structlog.contextvars.get_contextvars().get(key)

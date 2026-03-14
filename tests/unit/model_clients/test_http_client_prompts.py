@@ -1,16 +1,27 @@
+from typing import cast
+
+from ares_agent.domain.json_types import JsonObject
 from ares_agent.domain.events import EventSeed
-from ares_agent.model_clients.http_clients import SglangVlmJudgeClient, SglangVlmPreliminaryClient
+from ares_agent.model_clients.http_clients import PreliminaryRequestPayload, SglangVlmJudgeClient, SglangVlmPreliminaryClient
 from ares_agent.prompts.builders import ConfigurableInspectionPromptBuilder, DefaultInspectionPromptBuilder
-from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
+from type_helpers import (
+    RequesterPayload,
+    image_url_part,
+    json_object,
+    make_candidate,
+    make_preliminary_result,
+    message_parts,
+    text_part,
+)
 import pytest
 
 
 def test_preliminary_http_client_uses_prompt_builder_messages() -> None:
-    captured: list[dict[str, object]] = []
+    captured: list[RequesterPayload] = []
 
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
         captured.append(payload)
-        return {
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -27,7 +38,7 @@ def test_preliminary_http_client_uses_prompt_builder_messages() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmPreliminaryClient(
         endpoint="/mock/vlm/preliminary",
@@ -48,16 +59,17 @@ def test_preliminary_http_client_uses_prompt_builder_messages() -> None:
     )
 
     assert captured
-    assert captured[0]["messages"][0]["role"] == "system"
-    assert captured[0]["messages"][1]["content"][1]["image_url"]["url"] == "s3://street/frame-011.jpg"
+    first_payload = cast(PreliminaryRequestPayload, captured[0])
+    assert first_payload["messages"][0]["role"] == "system"
+    assert image_url_part(message_parts(first_payload["messages"][1])[1]) == "s3://street/frame-011.jpg"
 
 
 def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
-    captured: list[dict[str, object]] = []
+    captured: list[RequesterPayload] = []
 
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
         captured.append(payload)
-        return {
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -75,7 +87,7 @@ def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmJudgeClient(
         endpoint="/mock/vlm/judge",
@@ -92,26 +104,30 @@ def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
         relation_hint="stall overlaps sidewalk outside storefront boundary",
         segmentation_status="ok",
         evidence_basis_summary="stall overlaps sidewalk boundary",
-        preliminary=PreliminaryResult(
+        preliminary=make_preliminary_result(
             environment_analysis="street storefront scene",
             scene_elements=["storefront", "stall", "sidewalk"],
-            evidence_reasoning="stall extends into sidewalk",
-            segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
-            relation_hint="stall overlaps sidewalk outside storefront boundary",
-            violation_category="road_occupying_vendor",
-            open_risk_type="",
-            confidence=0.91,
+            candidates=[
+                make_candidate(
+                    violation_category="road_occupying_vendor",
+                    confidence=0.91,
+                    evidence_reasoning="stall extends into sidewalk",
+                    segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+                    relation_hint="stall overlaps sidewalk outside storefront boundary",
+                )
+            ],
         ),
     )
 
     assert captured
-    user_content = captured[0]["messages"][1]["content"]
-    judge_text = user_content[0]["text"]
+    first_payload = cast(PreliminaryRequestPayload, captured[0])
+    user_content = message_parts(first_payload["messages"][1])
+    judge_text = text_part(user_content[0])
     assert "category_code=road_occupying_vendor" in judge_text
     assert "mask_labels=stall, storefront_boundary, sidewalk_or_roadway" in judge_text
     assert "relation_hint=stall overlaps sidewalk outside storefront boundary" in judge_text
     assert "evidence_basis_summary=stall overlaps sidewalk boundary" in judge_text
-    assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
+    assert image_url_part(user_content[1]) == "s3://mock/overlay.png"
     assert "event_id=" not in judge_text
     assert "segmentation_status=" not in judge_text
     assert "risk_level=" not in judge_text
@@ -120,11 +136,11 @@ def test_judge_http_client_includes_preliminary_result_in_user_prompt() -> None:
 
 
 def test_judge_http_client_can_use_configurable_templates() -> None:
-    captured: list[dict[str, object]] = []
+    captured: list[RequesterPayload] = []
 
-    def fake_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+    def fake_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
         captured.append(payload)
-        return {
+        return json_object({
             "choices": [
                 {
                     "message": {
@@ -142,7 +158,7 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
                     }
                 }
             ]
-        }
+        })
 
     client = SglangVlmJudgeClient(
         endpoint="/mock/vlm/judge",
@@ -176,28 +192,32 @@ def test_judge_http_client_can_use_configurable_templates() -> None:
         relation_hint="stall overlaps sidewalk outside storefront boundary",
         segmentation_status="ok",
         evidence_basis_summary="stall overlaps sidewalk boundary",
-        preliminary=PreliminaryResult(
+        preliminary=make_preliminary_result(
             environment_analysis="street storefront scene",
             scene_elements=["storefront", "stall", "sidewalk"],
-            evidence_reasoning="stall extends into sidewalk",
-            segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
-            relation_hint="stall overlaps sidewalk outside storefront boundary",
-            violation_category="road_occupying_vendor",
-            open_risk_type="",
-            confidence=0.91,
+            candidates=[
+                make_candidate(
+                    violation_category="road_occupying_vendor",
+                    confidence=0.91,
+                    evidence_reasoning="stall extends into sidewalk",
+                    segmentation_targets=["stall", "storefront_boundary", "sidewalk_or_roadway"],
+                    relation_hint="stall overlaps sidewalk outside storefront boundary",
+                )
+            ],
         ),
     )
 
-    assert captured[0]["messages"][0]["content"] == "Custom judge system"
-    user_content = captured[0]["messages"][1]["content"]
-    judge_text = user_content[0]["text"]
+    first_payload = cast(PreliminaryRequestPayload, captured[0])
+    assert first_payload["messages"][0]["content"] == "Custom judge system"
+    user_content = message_parts(first_payload["messages"][1])
+    judge_text = text_part(user_content[0])
     assert (
         judge_text
         == "category_code=road_occupying_vendor; mask_labels=stall, storefront_boundary, sidewalk_or_roadway; "
         "relation_hint=stall overlaps sidewalk outside storefront boundary; "
         "evidence_basis_summary=stall overlaps sidewalk boundary"
     )
-    assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
+    assert image_url_part(user_content[1]) == "s3://mock/overlay.png"
     assert "event_id=" not in judge_text
     assert "segmentation_status=" not in judge_text
 

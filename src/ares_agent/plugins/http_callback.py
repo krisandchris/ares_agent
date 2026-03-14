@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import time
 from dataclasses import dataclass
-from typing import Callable, TypedDict, cast
+from typing import Callable, NotRequired, TypedDict, cast
 from urllib import request
 from urllib.parse import urlparse
 
@@ -18,10 +18,10 @@ from ares_agent.infra.logging import get_logger
 Sender = Callable[[str, dict[str, str], JsonObject], JsonObject]
 
 
-class CallbackResponsePayload(TypedDict, total=False):
+class CallbackResponsePayload(TypedDict):
     status_code: int | str
-    backend_trace_id: object
-    error_message: object
+    backend_trace_id: NotRequired[object]
+    error_message: NotRequired[object]
 
 
 @dataclass(frozen=True)
@@ -142,7 +142,7 @@ class HttpCallbackPlugin:
     @staticmethod
     def _serialize_payload(event_payload: object) -> JsonObject:
         if isinstance(event_payload, BaseModel):
-            return cast(JsonObject, dict(event_payload.model_dump(mode="json")))
+            return cast(JsonObject, dict(event_payload.model_dump(mode="json", exclude_none=True)))
         if isinstance(event_payload, dict):
             return cast(JsonObject, dict(event_payload))
         raise TypeError(f"Unsupported payload type: {type(event_payload)!r}")

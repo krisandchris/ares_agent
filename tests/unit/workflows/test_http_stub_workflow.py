@@ -1,10 +1,15 @@
+from typing import cast
+
 from pathlib import Path
 
 from fastapi.testclient import TestClient
 
 from ares_agent.api.app import create_app
+from ares_agent.domain.json_types import JsonObject
 from ares_agent.domain.events import EventSeed
 from ares_agent.model_clients.http_clients import (
+    PreliminaryRequestPayload,
+    Sam3RequestPayload,
     Sam3FastApiClient,
     SglangVlmJudgeClient,
     SglangVlmPreliminaryClient,
@@ -12,6 +17,7 @@ from ares_agent.model_clients.http_clients import (
 from ares_agent.plugins.http_callback import HttpCallbackPlugin
 from ares_agent.prompts.builders import DefaultInspectionPromptBuilder
 from ares_agent.workflows.inspection_event_workflow import build_inspection_event_workflow
+from type_helpers import RequesterPayload, image_url_part, json_object, message_parts, stored_payload
 
 
 def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> None:
@@ -48,14 +54,14 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
     stub_app = create_app(config_path=config_path)
     stub_client = TestClient(stub_app)
 
-    captured_requests: list[tuple[str, dict[str, object]]] = []
+    captured_requests: list[tuple[str, RequesterPayload]] = []
 
-    def local_requester(url: str, headers: dict[str, str], payload: dict[str, object]) -> dict[str, object]:
+    def local_requester(url: str, headers: dict[str, str], payload: RequesterPayload) -> JsonObject:
         captured_requests.append((url, payload))
         response = stub_client.post(url, json=payload, headers=headers)
-        return response.json()
+        return json_object(response.json())
 
-    callback_payloads: list[dict[str, object]] = []
+    callback_payloads: list[JsonObject] = []
 
     workflow = build_inspection_event_workflow(
         preliminary_client=SglangVlmPreliminaryClient(
@@ -91,13 +97,20 @@ def test_workflow_can_run_through_local_stub_http_clients(tmp_path: Path) -> Non
             occur_time="2026-03-09T10:50:00Z",
         )
     )
+    payload = stored_payload(output)
 
-    assert output.content["stage"] == "refined"
-    assert output.content["refined_feedback"]["final_category"] == "motor_vehicle_illegal_parking"
+    assert payload["stage"] == "refined"
+    assert payload.get("summary") == {"candidate_count": 1, "refined_count": 1, "failed_count": 0}
+    sub_events = payload.get("sub_events")
+    assert sub_events is not None
+    assert sub_events[0]["refined_feedback"]["final_category"] == "motor_vehicle_illegal_parking"
     assert [payload["stage"] for payload in callback_payloads] == ["preliminary", "refined"]
-    sam_request = next(payload for url, payload in captured_requests if url == "/mock/sam3/segment")
+    sam_request = cast(Sam3RequestPayload, next(payload for url, payload in captured_requests if url == "/mock/sam3/segment"))
     assert sam_request["image_uri"] == "s3://street/frame-005.jpg"
-    judge_request = next(payload for url, payload in captured_requests if url == "/mock/vlm/judge")
-    user_content = judge_request["messages"][1]["content"]
-    assert user_content[0]["text"].startswith("category_code=motor_vehicle_illegal_parking")
-    assert user_content[1]["image_url"]["url"] == "s3://mock/motor_overlay.png"
+    judge_request = cast(
+        PreliminaryRequestPayload,
+        next(payload for url, payload in captured_requests if url == "/mock/vlm/judge"),
+    )
+    user_content = message_parts(judge_request["messages"][1])
+    assert user_content[0].get("text", "").startswith("category_code=motor_vehicle_illegal_parking")
+    assert image_url_part(user_content[1]) == "s3://mock/motor_overlay.png"

@@ -1,10 +1,12 @@
 from pathlib import Path
 
+import yaml
+
 from ares_agent.domain.events import EventSeed
 from ares_agent.infra.config import load_config
 from ares_agent.prompts.builders import ConfigurableInspectionPromptBuilder
 from ares_agent.prompts.scene_activation import SceneActivationContext
-from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
+from type_helpers import image_url_part, message_parts, text_part
 
 
 def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
@@ -64,6 +66,7 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
     )
 
     config = load_config(config_path)
+    assert config.prompts is not None
 
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
     assert "scene_hint={scene_hint}" in config.prompts.preliminary.scene_activation_block_template
@@ -105,15 +108,15 @@ def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() 
     )
 
     assert messages[0]["content"] == "You are a custom judge model."
-    user_content = messages[1]["content"]
-    user_text = user_content[0]["text"]
+    user_content = message_parts(messages[1])
+    user_text = text_part(user_content[0])
     assert (
         user_text
         == "category_code=road_occupying_vendor; mask_labels=stall, storefront_boundary, sidewalk_or_roadway; "
         "relation_hint=stall overlaps sidewalk outside storefront boundary; "
         "evidence_basis_summary=stall overlaps sidewalk boundary"
     )
-    assert user_content[1]["image_url"]["url"] == "s3://mock/overlay.png"
+    assert image_url_part(user_content[1]) == "s3://mock/overlay.png"
     assert "event_id=" not in user_text
     assert "segmentation_status=" not in user_text
 
@@ -181,3 +184,22 @@ def test_configurable_prompt_builder_renders_preliminary_system_prompt_with_scen
     assert "definition: catering staff missing mask" in system_text
     assert "goods block sidewalk" not in system_text
     assert "OUTPUT CONTRACT BLOCK" in system_text
+
+
+def test_example_prompt_config_keeps_vlm1_candidate_fields_in_required_order() -> None:
+    prompt_config = yaml.safe_load(Path("config/prompt_config.example.yaml").read_text(encoding="utf-8"))
+    output_contract = prompt_config["prompts"]["preliminary"]["output_contract_block"]
+    reasoning_block = prompt_config["prompts"]["preliminary"]["reasoning_block"]
+
+    expected_order = [
+        "evidence_reasoning",
+        "relation_hint",
+        "segmentation_targets",
+        "violation_category",
+        "open_risk_type",
+        "confidence",
+    ]
+
+    positions = [output_contract.index(field) for field in expected_order]
+    assert positions == sorted(positions)
+    assert "If multiple distinct violations are visible, output multiple candidates rather than merging them into one." in reasoning_block

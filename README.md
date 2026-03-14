@@ -10,7 +10,7 @@ Current minimum convergence boundary:
 
 - stable `v1/inspection-items` contract
 - stable `camera_id + location` scene-aware `VLM-1` prompting
-- stable `VLM-1 -> SAM3 -> VLM-2 -> callback -> event_store` minimum chain
+- stable `VLM-1 candidates -> per-candidate SAM3 -> per-candidate VLM-2 -> callback -> event_store` minimum chain
 
 Implemented today:
 
@@ -19,6 +19,8 @@ Implemented today:
 - JSON fixture-backed mock VLM-1 / SAM3 / VLM-2 clients
 - HTTP callback plugin
 - configurable in-memory / file-backed event result storage
+- multi-candidate `VLM-1` output with shared `event_id` and per-candidate `sub_event_id`
+- per-candidate fan-out into `SAM3 -> VLM-2 -> callback`
 - event query route by `event_id`
 - structured request/workflow/callback logging
 - success and failure path unit tests
@@ -72,7 +74,7 @@ tests/unit/
 
 Current runtime chain:
 
-`FastAPI -> VLM-1 -> SAM3 -> VLM-2 -> callback -> event_store`
+`FastAPI -> VLM-1 candidates -> fan-out per candidate -> SAM3 -> VLM-2 -> callback -> event_store`
 
 ## Setup
 
@@ -108,7 +110,7 @@ The service now supports two `event_store` backends:
   - data is lost after process restart
 - `file`
   - persists latest payloads under a local directory on disk
-  - keeps one JSON file per `event_id`
+  - keeps one JSON file per root `event_id`
   - survives process restart on the same machine
 
 Recommended local persistence config:
@@ -119,7 +121,7 @@ event_store:
   base_dir: ./data/event_store
 ```
 
-With `backend: file`, the service writes event payloads to:
+With `backend: file`, the service writes the root event payload to:
 
 ```text
 <base_dir>/<event_id>.json
@@ -130,7 +132,7 @@ The current implementation uses atomic replace on save, so each event file is wr
 `orchestrator.chain_mode` in config controls the runtime chain:
 
 - `full`
-  - synchronously runs `VLM-1 -> SAM3 -> VLM-2`
+  - synchronously runs `VLM-1`, then fans out each candidate through `SAM3 -> VLM-2`
   - HTTP returns `stage=refined`
 - `vlm1_only`
   - only runs `VLM-1`
@@ -140,14 +142,21 @@ The current implementation uses atomic replace on save, so each event file is wr
 `callback.send_preliminary` and `callback.send_refined` only control whether stage results are sent to the backend management service.
 They do not change the HTTP response stage of `/v1/inspection-items`.
 
+When VLM-1 outputs multiple candidates:
+
+- all candidates share the same root `event_id`
+- each candidate gets its own `sub_event_id`
+- `preliminary` callback is sent once per candidate when enabled
+- `refined` callback is sent once per candidate when enabled
+
 Current callback/return behavior matrix:
 
 | `chain_mode` | `send_preliminary` | `send_refined` | backend callback | HTTP response |
 |---|---:|---:|---|---|
-| `vlm1_only` | `true` | `false` | sends `preliminary` | `stage=preliminary` |
+| `vlm1_only` | `true` | `false` | sends one `preliminary` callback per candidate | `stage=preliminary` |
 | `vlm1_only` | `false` | `false` | sends nothing | `stage=preliminary` |
-| `full` | `true` | `true` | sends `preliminary` + `refined` | `stage=refined` |
-| `full` | `true` | `false` | sends `preliminary` only | `stage=refined` |
+| `full` | `true` | `true` | sends one `preliminary` and one `refined` callback per candidate | `stage=refined` |
+| `full` | `true` | `false` | sends one `preliminary` callback per candidate | `stage=refined` |
 | `full` | `false` | `false` | sends nothing | `stage=refined` |
 
 Illegal configuration:
@@ -239,8 +248,9 @@ curl -X POST http://127.0.0.1:8000/v1/inspection-items \
 Expected behavior:
 
 - the app loads mock fixture data from `config/agent_config.example.yaml`
-- the workflow runs `VLM-1 -> SAM3 -> VLM-2 -> callback`
-- the response returns the refined event payload for the shared `event_id`
+- the workflow runs `VLM-1`, then fans out each candidate through `SAM3 -> VLM-2 -> callback`
+- the response returns the refined root payload for the shared `event_id`
+- if multiple candidates are found, the response contains `sub_events`
 - the latest event result can be queried by `event_id`
 
 Query the stored event payload:
@@ -249,7 +259,40 @@ Query the stored event payload:
 curl http://127.0.0.1:8000/v1/events/<event_id>
 ```
 
-When `event_store.backend=file`, the same payload is also persisted to the local `base_dir`.
+When `event_store.backend=file`, the same root payload is also persisted to the local `base_dir`.
+
+## Root Event And Sub Events
+
+The current result model distinguishes:
+
+- `event_id`
+  - stable root id for the original inspection input
+- `sub_event_id`
+  - stable child id for one candidate violation under the same root event
+
+Result payloads now follow this pattern:
+
+- top-level payload keeps a backward-compatible root view
+- `sub_events` contains the full per-candidate refined results
+
+Typical structure:
+
+```json
+{
+  "event_id": "evt_xxx",
+  "stage": "refined",
+  "preliminary_feedback": { "...": "first candidate compatibility view" },
+  "refined_feedback": { "...": "first candidate compatibility view" },
+  "sub_events": [
+    {
+      "sub_event_id": "sub_evt_xxx",
+      "stage": "refined",
+      "preliminary_feedback": { "...": "candidate-specific" },
+      "refined_feedback": { "...": "candidate-specific" }
+    }
+  ]
+}
+```
 
 ## Logging
 
@@ -266,6 +309,7 @@ Current log coverage includes:
 Correlation strategy:
 
 - `event_id` is the primary chain key
+- `sub_event_id` is the per-candidate chain key
 - `request_id` is the HTTP-layer key
 
 You can send your own request id through:

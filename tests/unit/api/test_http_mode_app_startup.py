@@ -177,5 +177,6 @@ def test_create_app_runs_full_workflow_in_http_mode_with_configured_clients(tmp_
 
     assert response.status_code == 200
     body = response.json()
-    assert body["refined_feedback"]["final_category"] == "goods_blocking_road"
+    assert body["summary"] == {"candidate_count": 1, "refined_count": 1, "failed_count": 0}
+    assert body["sub_events"][0]["refined_feedback"]["final_category"] == "goods_blocking_road"
     assert [payload["stage"] for payload in callback_payloads] == ["preliminary", "refined"]
