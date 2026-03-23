@@ -10,6 +10,8 @@ from fastapi import FastAPI
 
 from ares_agent.api.app import create_app
 
+DEFAULT_CONFIG_PATH = Path("config/service_config.example.yaml")
+
 
 def build_service_app(config_path: str | Path) -> FastAPI:
     return create_app(config_path=config_path)
@@ -19,7 +21,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Launch the Ares inspection service.")
     parser.add_argument(
         "--config",
-        default=str(Path.cwd() / "config/agent_config.example.yaml"),
+        default=str(Path.cwd() / DEFAULT_CONFIG_PATH),
         help="Path to the YAML config file.",
     )
     parser.add_argument("--host", default="0.0.0.0", help="Host address for the FastAPI service.")

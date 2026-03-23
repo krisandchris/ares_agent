@@ -100,31 +100,24 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
                 f"  segmentation_fixture: {segmentation_fixture.name}",
                 f"  evidence_judge_fixture: {judge_fixture.name}",
                 "scene_policies:",
-                "  camera_defaults:",
+                "  南山路:",
                 "    front:",
                 "      enabled_categories:",
                 "        - motor_vehicle_illegal_parking",
-                "      scene_hint: road-facing camera",
-                "  location_defaults:",
-                "    南山路:",
+                "      location_constraints:",
+                "        - focus on roadside and sidewalk occupation",
+                "    left:",
                 "      enabled_categories:",
                 "        - goods_blocking_road",
                 "      location_constraints:",
-                "        - focus on roadside and sidewalk occupation",
-                "  overrides:",
-                "    南山路:",
-                "      left:",
-                "        enabled_categories:",
-                "          - staff_not_wear_mask",
-                "          - goods_blocking_road",
-                "        priority_categories:",
-                "          - staff_not_wear_mask",
+                "        - focus on storefront frontage",
+                "    right: {}",
                 "prompts:",
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
                 "    scene_activation_block_template: |",
-                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "      enabled_categories={enabled_categories}; location_constraints={location_constraints}; open_risk_guidance={open_risk_guidance}",
                 "    category_focus_block_template: |",
                 "      category_definitions:",
                 "      {category_definitions}",
@@ -171,16 +164,12 @@ def test_load_config_reads_scene_policies_and_structured_preliminary_prompt_bloc
     config = load_config(config_path)
 
     assert config.scene_policies is not None
-    assert config.scene_policies.camera_defaults["front"].scene_hint == "road-facing camera"
-    assert config.scene_policies.location_defaults["南山路"].location_constraints == [
+    assert config.scene_policies.root["南山路"].front.location_constraints == [
         "focus on roadside and sidewalk occupation"
     ]
-    assert config.scene_policies.overrides["南山路"]["left"].enabled_categories == [
-        "staff_not_wear_mask",
-        "goods_blocking_road",
-    ]
+    assert config.scene_policies.root["南山路"].left.location_constraints == ["focus on storefront frontage"]
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
-    assert "scene_hint={scene_hint}" in config.prompts.preliminary.scene_activation_block_template
+    assert "enabled_categories={enabled_categories}" in config.prompts.preliminary.scene_activation_block_template
     assert "{category_definitions}" in config.prompts.preliminary.category_focus_block_template
     assert config.category_registry["staff_not_wear_mask"].definition == "catering staff missing mask"
 
@@ -233,19 +222,19 @@ def test_load_config_rejects_unknown_enabled_category_in_scene_policy(tmp_path: 
                 f"  segmentation_fixture: {segmentation_fixture.name}",
                 f"  evidence_judge_fixture: {judge_fixture.name}",
                 "scene_policies:",
-                "  camera_defaults:",
+                "  南山路:",
                 "    front:",
                 "      enabled_categories:",
                 "        - motor_vehicle_illegal_parking",
                 "        - not_a_real_category",
-                "      priority_categories:",
-                "        - motor_vehicle_illegal_parking",
+                "    left: {}",
+                "    right: {}",
                 "prompts:",
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
                 "    scene_activation_block_template: |",
-                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "      enabled_categories={enabled_categories}; location_constraints={location_constraints}; open_risk_guidance={open_risk_guidance}",
                 "    category_focus_block_template: |",
                 "      category_definitions:",
                 "      {category_definitions}",
@@ -279,7 +268,7 @@ def test_load_config_rejects_unknown_enabled_category_in_scene_policy(tmp_path: 
         load_config(config_path)
 
 
-def test_load_config_rejects_unknown_priority_category_in_scene_policy(tmp_path: Path) -> None:
+def test_load_config_reads_matrix_style_scene_policy(tmp_path: Path) -> None:
     prelim_fixture = tmp_path / "prelim.json"
     prelim_fixture.write_text("{}", encoding="utf-8")
     segmentation_fixture = tmp_path / "sam.json"
@@ -298,18 +287,20 @@ def test_load_config_rejects_unknown_priority_category_in_scene_policy(tmp_path:
                 f"  segmentation_fixture: {segmentation_fixture.name}",
                 f"  evidence_judge_fixture: {judge_fixture.name}",
                 "scene_policies:",
-                "  camera_defaults:",
+                "  南山路:",
+                "    front: {}",
                 "    left:",
                 "      enabled_categories:",
                 "        - staff_not_wear_mask",
-                "      priority_categories:",
-                "        - ghost_category",
+                "      location_constraints:",
+                "        - focus on storefront frontage",
+                "    right: {}",
                 "prompts:",
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
                 "    scene_activation_block_template: |",
-                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "      enabled_categories={enabled_categories}; location_constraints={location_constraints}; open_risk_guidance={open_risk_guidance}",
                 "    category_focus_block_template: |",
                 "      category_definitions:",
                 "      {category_definitions}",
@@ -339,8 +330,9 @@ def test_load_config_rejects_unknown_priority_category_in_scene_policy(tmp_path:
         encoding="utf-8",
     )
 
-    with pytest.raises(ValueError, match="Unknown categories referenced in scene_policies"):
-        load_config(config_path)
+    config = load_config(config_path)
+    assert config.scene_policies is not None
+    assert config.scene_policies.root["南山路"].left.location_constraints == ["focus on storefront frontage"]
 
 
 def test_load_config_rejects_refined_callback_when_chain_mode_is_vlm1_only(tmp_path: Path) -> None:
@@ -386,19 +378,18 @@ def test_load_config_supports_split_prompt_config_file(tmp_path: Path) -> None:
         "\n".join(
             [
                 "scene_policies:",
-                "  camera_defaults:",
+                "  南山路:",
                 "    front:",
                 "      enabled_categories:",
                 "        - motor_vehicle_illegal_parking",
-                "      priority_categories:",
-                "        - motor_vehicle_illegal_parking",
-                "      scene_hint: road-facing camera",
+                "    left: {}",
+                "    right: {}",
                 "prompts:",
                 "  preliminary:",
                 "    role_block: |",
                 "      ROLE BLOCK",
                 "    scene_activation_block_template: |",
-                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "      enabled_categories={enabled_categories}; location_constraints={location_constraints}; open_risk_guidance={open_risk_guidance}",
                 "    category_focus_block_template: |",
                 "      category_definitions:",
                 "      {category_definitions}",
@@ -452,7 +443,7 @@ def test_load_config_supports_split_prompt_config_file(tmp_path: Path) -> None:
     assert config.prompts is not None
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
     assert config.scene_policies is not None
-    assert config.scene_policies.camera_defaults["front"].scene_hint == "road-facing camera"
+    assert config.scene_policies.root["南山路"].front.enabled_categories == ["motor_vehicle_illegal_parking"]
 
 
 def test_load_config_reads_minio_settings(tmp_path: Path) -> None:

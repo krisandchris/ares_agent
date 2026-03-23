@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Literal
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, HttpUrl, model_validator
+from pydantic import BaseModel, ConfigDict, Field, HttpUrl, RootModel, model_validator
 
 
 class AgentSettings(BaseModel):
@@ -85,18 +85,29 @@ class MockClientSettings(BaseModel):
     evidence_judge_fixture: Path
 
 
-class SceneActivationRule(BaseModel):
+class SceneCameraRule(BaseModel):
     enabled_categories: list[str] = Field(default_factory=list)
-    disabled_categories: list[str] = Field(default_factory=list)
-    priority_categories: list[str] = Field(default_factory=list)
     location_constraints: list[str] = Field(default_factory=list)
-    scene_hint: str = ""
 
 
-class SceneActivationPolicyConfig(BaseModel):
-    camera_defaults: dict[str, SceneActivationRule] = Field(default_factory=dict)
-    location_defaults: dict[str, SceneActivationRule] = Field(default_factory=dict)
-    overrides: dict[str, dict[str, SceneActivationRule]] = Field(default_factory=dict)
+SceneActivationRule = SceneCameraRule
+
+
+class SceneLocationPolicy(BaseModel):
+    front: SceneCameraRule
+    left: SceneCameraRule
+    right: SceneCameraRule
+
+
+class SceneActivationPolicyConfig(RootModel[dict[str, SceneLocationPolicy]]):
+    @model_validator(mode="before")
+    @classmethod
+    def migrate_legacy_layout(cls, value: object) -> object:
+        if not isinstance(value, dict):
+            return value
+        if not any(key in value for key in ("camera_defaults", "location_defaults", "overrides")):
+            return value
+        return _migrate_legacy_scene_policies(value)
 
 
 class CategoryRegistryRule(BaseModel):
@@ -173,22 +184,15 @@ class AppConfig(BaseModel):
         known_categories = set(self.category_registry)
         unknown_categories: set[str] = set()
 
-        def collect_unknown(rule: SceneActivationRule) -> None:
-            for category in (
-                *rule.enabled_categories,
-                *rule.disabled_categories,
-                *rule.priority_categories,
-            ):
+        def collect_unknown(rule: SceneCameraRule) -> None:
+            for category in rule.enabled_categories:
                 if category not in known_categories:
                     unknown_categories.add(category)
 
-        for rule in self.scene_policies.camera_defaults.values():
-            collect_unknown(rule)
-        for rule in self.scene_policies.location_defaults.values():
-            collect_unknown(rule)
-        for location_overrides in self.scene_policies.overrides.values():
-            for rule in location_overrides.values():
-                collect_unknown(rule)
+        for location_policy in self.scene_policies.root.values():
+            collect_unknown(location_policy.front)
+            collect_unknown(location_policy.left)
+            collect_unknown(location_policy.right)
 
         if unknown_categories:
             categories = ", ".join(sorted(unknown_categories))
@@ -263,3 +267,57 @@ def _resolve_callback_settings(settings: CallbackSettings) -> CallbackSettings:
         block_on_preliminary_failure=settings.block_on_preliminary_failure,
         retry=retry,
     )
+
+
+def _migrate_legacy_scene_policies(data: dict[str, object]) -> dict[str, object]:
+    camera_defaults = data.get("camera_defaults", {})
+    location_defaults = data.get("location_defaults", {})
+    overrides = data.get("overrides", {})
+    locations: set[str] = set()
+    if isinstance(location_defaults, dict):
+        locations.update(str(key) for key in location_defaults)
+    if isinstance(overrides, dict):
+        locations.update(str(key) for key in overrides)
+
+    migrated: dict[str, object] = {}
+    for location in locations:
+        location_rule = location_defaults.get(location, {}) if isinstance(location_defaults, dict) else {}
+        override_rules = overrides.get(location, {}) if isinstance(overrides, dict) else {}
+        location_entry: dict[str, object] = {}
+        for camera_id in ("front", "left", "right"):
+            camera_rule = camera_defaults.get(camera_id, {}) if isinstance(camera_defaults, dict) else {}
+            override_rule = override_rules.get(camera_id, {}) if isinstance(override_rules, dict) else {}
+            camera_enabled = _rule_list(camera_rule, "enabled_categories")
+            location_enabled = _rule_list(location_rule, "enabled_categories")
+            enabled_categories = [item for item in camera_enabled if item in location_enabled]
+            override_constraints = _rule_list(override_rule, "location_constraints")
+            location_constraints = (
+                override_constraints
+                or _merge_unique(
+                    _rule_list(camera_rule, "location_constraints"),
+                    _rule_list(location_rule, "location_constraints"),
+                )
+            )
+            location_entry[camera_id] = {
+                "enabled_categories": enabled_categories,
+                "location_constraints": location_constraints,
+            }
+        migrated[location] = location_entry
+    return migrated
+
+
+def _rule_list(rule: object, key: str) -> list[str]:
+    if isinstance(rule, dict):
+        value = rule.get(key, [])
+    else:
+        value = getattr(rule, key, [])
+    return [str(item) for item in value]
+
+
+def _merge_unique(*value_groups: list[str]) -> list[str]:
+    merged: list[str] = []
+    for values in value_groups:
+        for value in values:
+            if value not in merged:
+                merged.append(value)
+    return merged

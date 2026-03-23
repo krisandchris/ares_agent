@@ -146,7 +146,7 @@ class ConfigurableInspectionPromptBuilder(PromptBuilder):
             update={"open_risk_guidance": open_risk_guidance},
         )
         category_definitions = CategoryDefinitionRenderer(self.category_registry).render(
-            resolved_context.priority_categories
+            resolved_context.enabled_categories
         )
         assembler = self.preliminary_prompt_assembler or PreliminaryPromptAssembler()
         system_prompt = assembler.assemble(

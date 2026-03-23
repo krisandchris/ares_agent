@@ -93,7 +93,7 @@ uv run uvicorn ares_agent.api.app:app --host 0.0.0.0 --port 8000
 ## Run Formal Service
 
 ```bash
-./scripts/run_service.sh --config config/agent_config.example.yaml --host 0.0.0.0 --port 8000
+./scripts/run_service.sh --config config/service_config.example.yaml --host 0.0.0.0 --port 8000
 ```
 
 Recommended split-config service startup:
@@ -184,15 +184,32 @@ Split configuration files:
 - [service_config.sanitized.example.yaml](./config/service_config.sanitized.example.yaml)
   - redacted template safe for version control
 - [prompt_config.example.yaml](./config/prompt_config.example.yaml)
+  - default English prompt pack
   - scene policies
   - prompts
   - category registry
   - open risk registry
+- [prompt_config_zh.example.yaml](./config/prompt_config_zh.example.yaml)
+  - Chinese prompt pack with the same structure
+
+Scene policy layout:
+
+- `scene_policies` now uses a direct `location -> camera -> rule` matrix
+- each camera rule keeps only:
+  - `enabled_categories`
+  - `location_constraints`
+- `front`, `left`, and `right` should all be declared for each location
+- an empty camera node like `{}` means no standard categories are enabled for that location-camera pair, so the model falls back to `open_risk` / `none`
+
+Prompt pack selection:
+
+- `config/service_config.example.yaml` defaults to `prompt_config.example.yaml`
+- to switch to Chinese, change `config_files.prompt_config` to `prompt_config_zh.example.yaml`
 
 ## Run VLM-1 Tester
 
 ```bash
-uv run python -m ares_agent.tools.vlm1_tester --config config/agent_config.example.yaml --host 127.0.0.1 --port 7860
+uv run python -m ares_agent.tools.vlm1_tester --config config/service_config.example.yaml --host 127.0.0.1 --port 7860
 ```
 
 This launches a standalone Gradio app that only tests the `camera_id + location -> scene policy -> VLM-1` path.
@@ -212,10 +229,10 @@ HTTP-mode note:
 ## Example Request
 
 ```bash
-curl -X POST http://127.0.0.1:8000/v1/inspection-items \
+curl -X POST http://112.17.140.44:8000/v1/inspection-items \
   -H "Content-Type: application/json" \
   -d '{
-    "image_uri": "s3://street/frame-001.jpg",
+    "image_uri": "s3://test-image-bucket/1760525209346.jpg",
     "camera_id": "front",
     "location": "南山路",
     "device_id": "dog-17",
@@ -247,7 +264,7 @@ curl -X POST http://127.0.0.1:8000/v1/inspection-items \
 
 Expected behavior:
 
-- the app loads mock fixture data from `config/agent_config.example.yaml`
+- the app loads mock fixture data from `config/service_config.example.yaml`
 - the workflow runs `VLM-1`, then fans out each candidate through `SAM3 -> VLM-2 -> callback`
 - the response returns the refined root payload for the shared `event_id`
 - if multiple candidates are found, the response contains `sub_events`
@@ -343,7 +360,7 @@ This script:
 
 ## Prompt Configuration
 
-Prompt templates are defined in `config/agent_config.example.yaml`.
+Prompt templates are selected through `config/service_config.example.yaml`.
 
 - `prompts.preliminary.role_block`
 - `prompts.preliminary.scene_activation_block_template`

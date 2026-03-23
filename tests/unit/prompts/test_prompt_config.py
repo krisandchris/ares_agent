@@ -32,7 +32,7 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
                 "    role_block: |",
                 "      ROLE BLOCK",
                 "    scene_activation_block_template: |",
-                "      scene_hint={scene_hint}; priority_categories={priority_categories}; open_risk_guidance={open_risk_guidance}",
+                "      enabled_categories={enabled_categories}; location_constraints={location_constraints}; open_risk_guidance={open_risk_guidance}",
                 "    category_focus_block_template: |",
                 "      category_definitions:",
                 "      {category_definitions}",
@@ -69,7 +69,8 @@ def test_load_config_reads_yaml_prompt_templates(tmp_path: Path) -> None:
     assert config.prompts is not None
 
     assert config.prompts.preliminary.role_block.strip() == "ROLE BLOCK"
-    assert "scene_hint={scene_hint}" in config.prompts.preliminary.scene_activation_block_template
+    assert "enabled_categories={enabled_categories}" in config.prompts.preliminary.scene_activation_block_template
+    assert "location_constraints={location_constraints}" in config.prompts.preliminary.scene_activation_block_template
     assert "{category_definitions}" in config.prompts.preliminary.category_focus_block_template
     assert "custom judge model" in config.prompts.judge.system
     assert "category_code={category_code}" in config.prompts.judge.user
@@ -83,7 +84,7 @@ def test_configurable_prompt_builder_renders_judge_prompt_from_yaml_templates() 
     builder = ConfigurableInspectionPromptBuilder(
         preliminary_role_block="ROLE BLOCK",
         preliminary_scene_activation_block_template=(
-            "scene_hint={scene_hint}; priority_categories={priority_categories}; "
+            "enabled_categories={enabled_categories}; location_constraints={location_constraints}; "
             "open_risk_guidance={open_risk_guidance}"
         ),
         preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
@@ -125,7 +126,7 @@ def test_configurable_prompt_builder_renders_preliminary_system_prompt_with_scen
     builder = ConfigurableInspectionPromptBuilder(
         preliminary_role_block="ROLE BLOCK",
         preliminary_scene_activation_block_template=(
-            "scene_hint={scene_hint}; priority_categories={priority_categories}; "
+            "enabled_categories={enabled_categories}; location_constraints={location_constraints}; "
             "open_risk_guidance={open_risk_guidance}"
         ),
         preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
@@ -164,10 +165,7 @@ def test_configurable_prompt_builder_renders_preliminary_system_prompt_with_scen
             camera_id="left",
             location="南山路",
             enabled_categories=["staff_not_wear_mask", "goods_blocking_road"],
-            disabled_categories=["motor_vehicle_illegal_parking"],
-            priority_categories=["staff_not_wear_mask"],
             location_constraints=["focus on storefront frontage"],
-            scene_hint="storefront-facing side camera",
             open_risk_guidance="If strong evidence of uncategorized risk exists, output open_risk.",
         ),
     )
@@ -176,13 +174,12 @@ def test_configurable_prompt_builder_renders_preliminary_system_prompt_with_scen
     assert "ROLE BLOCK" in system_text
     assert "camera_id=" not in system_text
     assert "location=南山路" not in system_text
-    assert "enabled_categories=" not in system_text
-    assert "disabled_categories=" not in system_text
-    assert "priority_categories=staff_not_wear_mask" in system_text
+    assert "enabled_categories=staff_not_wear_mask, goods_blocking_road" in system_text
+    assert "location_constraints=focus on storefront frontage" in system_text
     assert "open_risk_guidance=If strong evidence of uncategorized risk exists, output open_risk." in system_text
     assert "CATEGORY FOCUS" in system_text
     assert "definition: catering staff missing mask" in system_text
-    assert "goods block sidewalk" not in system_text
+    assert "goods block sidewalk" in system_text
     assert "OUTPUT CONTRACT BLOCK" in system_text
 
 
@@ -203,3 +200,14 @@ def test_example_prompt_config_keeps_vlm1_candidate_fields_in_required_order() -
     positions = [output_contract.index(field) for field in expected_order]
     assert positions == sorted(positions)
     assert "If multiple distinct violations are visible, output multiple candidates rather than merging them into one." in reasoning_block
+
+
+def test_chinese_prompt_config_example_is_valid_yaml_with_matching_structure() -> None:
+    prompt_config = yaml.safe_load(Path("config/prompt_config_zh.example.yaml").read_text(encoding="utf-8"))
+
+    assert "scene_policies" in prompt_config
+    assert "prompts" in prompt_config
+    assert "category_registry" in prompt_config
+    assert "open_risk_registry" in prompt_config
+    assert "enabled_categories" in prompt_config["prompts"]["preliminary"]["scene_activation_block_template"]
+    assert "location_constraints" in prompt_config["prompts"]["preliminary"]["scene_activation_block_template"]

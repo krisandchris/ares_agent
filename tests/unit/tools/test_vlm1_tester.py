@@ -2,7 +2,13 @@ from pathlib import Path
 from base64 import b64decode
 import pytest
 
-from ares_agent.tools.vlm1_tester import run_vlm1_preliminary_test
+from ares_agent.tools.vlm1_tester import DEFAULT_CONFIG_PATH, create_gradio_app, run_vlm1_preliminary_test
+
+
+def test_vlm1_tester_defaults_to_service_config_example() -> None:
+    assert DEFAULT_CONFIG_PATH == Path("config/service_config.example.yaml")
+    assert create_gradio_app.__kwdefaults__ is not None
+    assert create_gradio_app.__kwdefaults__["config_path"] == Path.cwd() / DEFAULT_CONFIG_PATH
 
 
 def test_run_vlm1_preliminary_test_returns_prompt_preview_and_result(tmp_path: Path) -> None:
@@ -89,8 +95,10 @@ def test_run_vlm1_preliminary_test_returns_prompt_preview_and_result(tmp_path: P
     )
 
     assert result.event_id.startswith("evt_")
-    assert result.scene_activation.priority_categories == ["goods_blocking_road"]
-    assert result.scene_activation.scene_hint == "storefront-facing camera"
+    assert result.scene_activation.enabled_categories == ["goods_blocking_road"]
+    assert result.scene_activation.location_constraints == [
+        "focus on storefront frontage and sidewalk occupation"
+    ]
     assert result.system_prompt.startswith("ROLE BLOCK")
     assert "goods_blocking_road" in result.system_prompt
     assert result.user_prompt == "Analyze this inspection image."

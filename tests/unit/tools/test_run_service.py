@@ -2,7 +2,11 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
-from ares_agent.tools.run_service import build_service_app
+from ares_agent.tools.run_service import DEFAULT_CONFIG_PATH, build_service_app
+
+
+def test_run_service_defaults_to_service_config_example() -> None:
+    assert DEFAULT_CONFIG_PATH == Path("config/service_config.example.yaml")
 
 
 def test_build_service_app_loads_configured_chain_mode(tmp_path: Path) -> None:

@@ -47,6 +47,9 @@ from ares_agent.workflows.inspection_event_workflow import (
     build_preliminary_only_workflow,
 )
 
+DEFAULT_CONFIG_PATH = Path("config/service_config.example.yaml")
+
+
 def _load_fixture_json(path: Path) -> JsonObject:
     return json.loads(path.read_text(encoding="utf-8"))
 
@@ -261,7 +264,7 @@ def _build_image_uri_resolver_from_config(config: AppConfig) -> ImageUriResolver
 
 
 def _build_default_workflow(*, callback_sender: Sender | None = None) -> Workflow:
-    config = load_config(Path.cwd() / "config/agent_config.example.yaml")
+    config = load_config(Path.cwd() / DEFAULT_CONFIG_PATH)
     return _build_workflow_from_config(
         config,
         callback_sender=callback_sender,
@@ -290,7 +293,7 @@ def create_app(
     if config_path is not None:
         app.state.app_config = load_config(config_path)
     else:
-        app.state.app_config = load_config(Path.cwd() / "config/agent_config.example.yaml")
+        app.state.app_config = load_config(Path.cwd() / DEFAULT_CONFIG_PATH)
     app.state.app_config.logging.service_name = app.state.app_config.agent.service_name
     configure_logging(app.state.app_config.logging, force=True)
     app_logger = get_logger(__name__)

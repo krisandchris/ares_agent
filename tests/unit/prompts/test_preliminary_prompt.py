@@ -5,7 +5,7 @@ from ares_agent.prompts.preliminary_prompt import CategoryDefinitionRenderer, Pr
 from ares_agent.prompts.scene_activation import SceneActivationContext
 
 
-def test_category_definition_renderer_only_renders_prioritized_categories() -> None:
+def test_category_definition_renderer_only_renders_enabled_categories() -> None:
     renderer = CategoryDefinitionRenderer(
         {
             "goods_blocking_road": CategoryRegistryRule(
@@ -51,15 +51,15 @@ def test_preliminary_prompt_assembler_builds_system_prompt_from_blocks() -> None
     context = SceneActivationContext(
         camera_id="left",
         location="南山路",
-        priority_categories=["staff_not_wear_mask", "goods_blocking_road"],
-        scene_hint="storefront-facing camera",
+        enabled_categories=["staff_not_wear_mask", "goods_blocking_road"],
+        location_constraints=["focus on storefront frontage"],
         open_risk_guidance="If obvious risk exists outside prioritized categories, output open_risk.",
     )
 
     system_prompt = assembler.assemble(
         role_block="ROLE BLOCK",
         scene_activation_block_template=(
-            "scene_hint={scene_hint}\npriority_categories={priority_categories}\nopen_risk_guidance={open_risk_guidance}"
+            "enabled_categories={enabled_categories}\nlocation_constraints={location_constraints}\nopen_risk_guidance={open_risk_guidance}"
         ),
         category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
         reasoning_block="REASONING BLOCK",
@@ -79,8 +79,8 @@ def test_preliminary_prompt_assembler_builds_system_prompt_from_blocks() -> None
         """\
         ROLE BLOCK
 
-        scene_hint=storefront-facing camera
-        priority_categories=staff_not_wear_mask, goods_blocking_road
+        enabled_categories=staff_not_wear_mask, goods_blocking_road
+        location_constraints=focus on storefront frontage
         open_risk_guidance=If obvious risk exists outside prioritized categories, output open_risk.
 
         CATEGORY FOCUS

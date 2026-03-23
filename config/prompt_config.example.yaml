@@ -1,5 +1,5 @@
 scene_policies:
-  camera_defaults:
+  南山路:
     front:
       enabled_categories:
         - road_occupying_vendor
@@ -10,115 +10,56 @@ scene_policies:
         - vagrants_blocking_roadway
         - begging_blocking_roadway
         - off_leash_dog_nuisance
-      priority_categories:
-        - motor_vehicle_illegal_parking
-        - nonmotor_vehicle_illegal_parking
-        - goods_blocking_road
-      scene_hint: road-facing camera
+      location_constraints:
+        - focus on roadside space, sidewalk occupation, storefront frontage, and pedestrian passage
     left:
       enabled_categories:
-        - road_occupying_vendor
-        - goods_blocking_road
         - unauthorized_electrical_wiring
-        - staff_not_wear_mask
-      priority_categories:
-        - goods_blocking_road
-        - unauthorized_electrical_wiring
-        - staff_not_wear_mask
-      scene_hint: storefront-facing camera
+      location_constraints:
+        - focus on storefront frontage, sidewalk blockage, and near-entrance obstruction
     right:
       enabled_categories:
-        - road_occupying_vendor
-        - goods_blocking_road
         - unauthorized_electrical_wiring
-        - staff_not_wear_mask
-      priority_categories:
-        - goods_blocking_road
-        - unauthorized_electrical_wiring
-        - staff_not_wear_mask
-      scene_hint: storefront-facing camera
-  location_defaults:
-    南山路:
-      enabled_categories:
-        - road_occupying_vendor
-        - goods_blocking_road
-        - unauthorized_electrical_wiring
-        - motor_vehicle_illegal_parking
-        - nonmotor_vehicle_illegal_parking
-        - vagrants_blocking_roadway
-        - begging_blocking_roadway
-        - off_leash_dog_nuisance
       location_constraints:
-        - focus on roadside, sidewalk, storefront frontage, and pedestrian passage
-    水坊街:
+        - focus on storefront frontage, sidewalk blockage, and near-entrance obstruction
+
+  水坊街:
+    front: {}
+    left:
       enabled_categories:
-        - road_occupying_vendor
-        - goods_blocking_road
-        - unauthorized_electrical_wiring
         - staff_not_wear_mask
       location_constraints:
-        - focus on storefront frontage, sidewalk occupation, and outdoor charging behavior
-  overrides:
-    南山路:
-      front:
-        enabled_categories:
-          - road_occupying_vendor
-          - goods_blocking_road
-          - unauthorized_electrical_wiring
-          - motor_vehicle_illegal_parking
-          - nonmotor_vehicle_illegal_parking
-          - vagrants_blocking_roadway
-          - begging_blocking_roadway
-          - off_leash_dog_nuisance
-        disabled_categories:
-          - staff_not_wear_mask
-        priority_categories:
-          - motor_vehicle_illegal_parking
-          - nonmotor_vehicle_illegal_parking
-          - goods_blocking_road
-      left:
-        enabled_categories:
-          - staff_not_wear_mask
-          - goods_blocking_road
-          - unauthorized_electrical_wiring
-        priority_categories:
-          - staff_not_wear_mask
-          - goods_blocking_road
-          - unauthorized_electrical_wiring
-      right:
-        enabled_categories:
-          - staff_not_wear_mask
-          - goods_blocking_road
-          - unauthorized_electrical_wiring
-        priority_categories:
-          - staff_not_wear_mask
-          - goods_blocking_road
-          - unauthorized_electrical_wiring
+        - focus on storefront frontage, sidewalk blockage, and outdoor charging behavior
+    right:
+      enabled_categories:
+        - staff_not_wear_mask
+      location_constraints:
+        - focus on storefront frontage, sidewalk blockage, and outdoor charging behavior
 
 prompts:
   preliminary:
     role_block: |
       You are a city-street visual inspection model for a robot-dog patrol backend.
-      Your task is to analyze one inspection image from a robot-dog patrol and determine whether a violation or risk event exists.
+      Your task is to analyze one inspection image from a robot-dog patrol and determine whether any violation event or risk event is present.
     scene_activation_block_template: |
-      Current scene focus:
-      - scene_hint: {scene_hint}
-      - priority_categories: {priority_categories}
+      Current detection scope:
+      - enabled_categories: {enabled_categories}
+      - location_constraints: {location_constraints}
       - open_risk_guidance: {open_risk_guidance}
 
       Use rules:
-      - prioritize priority_categories first
-      - if visible evidence strongly suggests a risk outside the priority standard categories, follow open_risk_guidance
+      - only classify within enabled_categories unless the evidence strongly supports open_risk
+      - use location_constraints when judging spatial relations, occupation, blockage, parking position, storefront boundaries, and charging behavior
     category_focus_block_template: |
-      Prioritized category references:
+      Allowed category references:
       {category_definitions}
     reasoning_block: |
-      Always analyze the full environment before deciding the violation category.
-      Do not judge from a single object alone. Use spatial relationships between objects and environment.
+      Always analyze the whole scene before deciding the category.
+      Do not classify from a single object alone. Use object-to-object and object-to-environment spatial relations.
       If multiple distinct violations are visible, output multiple candidates rather than merging them into one.
-      segmentation_targets are for downstream SAM3 and should focus on key objects, boundaries, and relation-critical targets for each candidate.
-      If the image is occluded, blurry, distant, or incomplete, mention that in the analysis and lower confidence.
-      If no violation or risk exists, output one candidate with violation_category="none".
+      segmentation_targets are for downstream SAM3 and must focus on the key objects, boundaries, and relation-critical regions for each candidate.
+      If the image is blurry, occluded, distant, cropped, or incomplete, mention that in the analysis and lower confidence.
+      If no visible violation or risk exists, output exactly one candidate with violation_category="none".
     output_contract_block: |
       You must output JSON only, in this exact order:
       1. environment_analysis
@@ -144,8 +85,8 @@ prompts:
       Analyze this inspection image under the configured scene policy and output the required JSON.
   judge:
     system: |
-      You are the second-stage evidence-judgment model in a city-street visual inspection pipeline.
-      Your role is not to freely reclassify the whole image. Your role is to judge whether the current candidate violation category is supported by the SAM3 segmentation result image and the provided segmentation semantics.
+      You are the second-stage evidence judgment model in a city-street visual inspection pipeline.
+      Your role is not to freely reclassify the whole image. Your role is to judge whether the current candidate category is supported by the SAM3 segmentation result image and the provided segmentation semantics.
     user: |
       category_code={category_code}
       mask_labels={mask_labels}
@@ -154,63 +95,139 @@ prompts:
 
 category_registry:
   road_occupying_vendor:
-    definition: 商户或摊贩摆摊、设棚、堆放物品占用人行道或车道
-    common_objects: [stall, canopy, shelf, goods, storefront_boundary, sidewalk, roadway]
-    relation_focus: [goods_extend_beyond_storefront, occupy_sidewalk_or_roadway]
-    exceptions: [landscape_objects, newspaper_kiosk_adjacent_display]
+    definition: A vendor or storefront extends stalls, racks, goods, or temporary setup beyond the storefront boundary and occupies sidewalk or roadway space.
+    common_objects:
+      - vendor stall
+      - canopy
+      - display rack
+      - stacked goods
+      - storefront boundary
+      - sidewalk
+      - roadway edge
+    relation_focus:
+      - goods or display setup extends beyond storefront boundary
+      - stall or goods occupies pedestrian or vehicle passage space
+    exceptions:
+      - landscape installation
+      - limited normal display next to a kiosk
+
   goods_blocking_road:
-    definition: 货物、材料、宣传牌、垃圾等堆放在人行道并阻碍通行
-    common_objects: [goods, materials, signboard, trash, storefront_entrance, sidewalk]
-    relation_focus: [objects_on_sidewalk, obstruct_pedestrian_passage]
+    definition: Goods, materials, signboards, or miscellaneous items are placed on the sidewalk and block normal pedestrian passage.
+    common_objects:
+      - stacked goods
+      - materials
+      - signboard
+      - miscellaneous items
+      - storefront entrance
+      - sidewalk
+    relation_focus:
+      - objects are placed on the sidewalk
+      - objects block the pedestrian path
     exceptions: []
+
   unauthorized_electrical_wiring:
-    definition: 私自将电线拉至户外为电动车充电
-    common_objects: [wire, charger, electric_vehicle, outdoor_connection, storefront_power_source]
-    relation_focus: [wire_connects_power_to_vehicle, outdoor_charging_behavior]
+    definition: A power cable is extended from an indoor or storefront power source to the outdoor area for charging a vehicle or device.
+    common_objects:
+      - electric cable
+      - charger
+      - electric scooter
+      - outdoor charging point
+      - storefront power source
+    relation_focus:
+      - cable connects indoor power source to outdoor vehicle
+      - visible outdoor charging behavior through extended wiring
     exceptions: []
+
   motor_vehicle_illegal_parking:
-    definition: 机动车占用人行道、公交站台或非划线区域
-    common_objects: [motor_vehicle, motorcycle, sidewalk, blind_path, bus_stop, parking_line, unmarked_area]
-    relation_focus: [vehicle_occupies_prohibited_area]
+    definition: A motor vehicle is parked on a sidewalk, tactile paving, bus stop area, or another place where parking is not allowed.
+    common_objects:
+      - car
+      - motorcycle
+      - sidewalk
+      - tactile paving
+      - bus stop area
+      - parking line
+      - non parking area
+    relation_focus:
+      - motor vehicle occupies a prohibited parking area
     exceptions: []
+
   nonmotor_vehicle_illegal_parking:
-    definition: 无人使用状态下的非机动车占用人行道或车道
-    common_objects: [e_bike, bicycle, tricycle, sidewalk, roadway, blind_path, unattended_state]
-    relation_focus: [nonmotor_vehicle_occupies_walkway_or_road, unattended_vehicle_state]
+    definition: An unattended non-motor vehicle is parked on a sidewalk, tactile paving, or pedestrian passage and affects normal movement.
+    common_objects:
+      - electric bicycle
+      - bicycle
+      - tricycle
+      - sidewalk
+      - passage edge
+      - tactile paving
+      - unattended vehicle
+    relation_focus:
+      - non-motor vehicle is parked inside a pedestrian passage area
+      - vehicle is unattended or not in active use
     exceptions: []
+
   vagrants_blocking_roadway:
-    definition: 衣衫褴褛、头发凌乱的人倚坐或躺在路旁或路中央
-    common_objects: [disheveled_person, roadside, road_center]
-    relation_focus: [person_sitting_or_lying_in_road_area]
+    definition: A disheveled person sits or lies in a roadside or passage area for a prolonged time and affects movement order.
+    common_objects:
+      - person
+      - roadside
+      - passage area
+      - ground bedding
+    relation_focus:
+      - person is sitting or lying in a roadside or passage area
+      - the position clearly interferes with nearby movement
     exceptions: []
+
   begging_blocking_roadway:
-    definition: 携带乞讨工具的乞讨人员在路边或路中央占道
-    common_objects: [disheveled_person, begging_bowl, begging_sign, roadside, road_center]
-    relation_focus: [person_with_begging_tools_in_road_area]
+    definition: A person with visible begging-related items stays in a roadside or passage area and occupies movement space.
+    common_objects:
+      - person
+      - bowl
+      - sign board
+      - roadside
+      - passage area
+    relation_focus:
+      - person carries visible begging-related items
+      - person remains in a position that occupies pedestrian passage
     exceptions: []
+
   off_leash_dog_nuisance:
-    definition: 行人遛宠物狗时未使用牵引绳
-    common_objects: [pedestrian, pet_dog, leash]
-    relation_focus: [dog_not_restrained_by_leash]
+    definition: A pedestrian is with a dog in public space and the dog is not visibly controlled by a leash.
+    common_objects:
+      - pedestrian
+      - pet dog
+      - leash
+    relation_focus:
+      - dog moves near a person without visible leash control
+      - dog appears to be off leash in public space
     exceptions: []
+
   staff_not_wear_mask:
-    definition: 餐饮商户工作人员未佩戴口罩
-    common_objects: [catering_storefront, staff, mask, counter, food_operation_scene]
-    relation_focus: [catering_staff_without_mask]
+    definition: A food service worker is operating, serving, or handling food without wearing a mask.
+    common_objects:
+      - food service storefront
+      - staff member
+      - mask
+      - counter
+      - food preparation area
+    relation_focus:
+      - staff member is inside a food service operating area
+      - staff member is working without a visible mask
     exceptions: []
 
 open_risk_registry:
   guidance: |
-    If obvious risk evidence exists but does not fit the prioritized standard categories,
+    If obvious risk evidence exists but does not fit the allowed standard categories,
     output violation_category="open_risk" and provide a concise open_risk_type.
   examples:
-    - fire_or_smoke
-    - fallen_tree_or_branch
-    - flooding_or_water_accumulation
-    - damaged_manhole_or_road_surface
-    - exposed_infrastructure
-    - collapsed_barrier_or_fence
-    - traffic_accident_scene
-    - construction_hazard
-    - large_debris_on_road
-    - sanitation_emergency
+    - fire or smoke
+    - fallen tree or branch
+    - flooding or standing water
+    - damaged manhole or broken road surface
+    - exposed infrastructure
+    - collapsed barrier or fence
+    - traffic accident scene
+    - construction hazard
+    - large debris on the road
+    - sanitation emergency

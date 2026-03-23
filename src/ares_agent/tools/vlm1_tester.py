@@ -21,6 +21,8 @@ from ares_agent.services.image_uri_resolver import ImageUriResolver
 from ares_agent.prompts.scene_activation import SceneActivationContext
 from ares_agent.workflows.inspection_event_workflow import PreliminaryResult
 
+DEFAULT_CONFIG_PATH = Path("config/service_config.example.yaml")
+
 
 @dataclass(frozen=True)
 class Vlm1TesterOutput:
@@ -102,7 +104,7 @@ def run_vlm1_preliminary_test(
 
 def create_gradio_app(
     *,
-    config_path: str | Path = Path.cwd() / "config/agent_config.example.yaml",
+    config_path: str | Path = Path.cwd() / DEFAULT_CONFIG_PATH,
     preliminary_requester: Requester | None = None,
 ):
     import gradio as gr
@@ -173,7 +175,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Launch the standalone Gradio VLM-1 tester.")
     parser.add_argument(
         "--config",
-        default=str(Path.cwd() / "config/agent_config.example.yaml"),
+        default=str(Path.cwd() / DEFAULT_CONFIG_PATH),
         help="Path to the YAML config file used to build scene policy and VLM-1 client settings.",
     )
     parser.add_argument("--host", default="127.0.0.1", help="Host address for the Gradio server.")

@@ -1,5 +1,6 @@
 config_files:
   prompt_config: prompt_config.example.yaml
+  # prompt_config: prompt_config_zh.example.yaml
 
 agent:
   service_name: street-inspection-agent

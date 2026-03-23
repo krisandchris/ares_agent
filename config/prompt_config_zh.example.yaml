@@ -1,0 +1,235 @@
+scene_policies:
+  南山路:
+    front:
+      enabled_categories:
+        - road_occupying_vendor
+        - goods_blocking_road
+        - unauthorized_electrical_wiring
+        - motor_vehicle_illegal_parking
+        - nonmotor_vehicle_illegal_parking
+        - vagrants_blocking_roadway
+        - begging_blocking_roadway
+        - off_leash_dog_nuisance
+      location_constraints:
+        - 重点关注路侧空间、人行道占用、店铺门前区域和行人通行位置
+    left:
+      enabled_categories:
+        - unauthorized_electrical_wiring
+      location_constraints:
+        - 重点关注店铺门前、人行道堵塞以及贴近出入口的阻挡关系
+    right:
+      enabled_categories:
+        - unauthorized_electrical_wiring
+      location_constraints:
+        - 重点关注店铺门前、人行道堵塞以及贴近出入口的阻挡关系
+
+  水坊街:
+    front: {}
+    left:
+      enabled_categories:
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      location_constraints:
+        - 重点关注店铺门前、人行道堵塞和室外拉线充电行为
+    right:
+      enabled_categories:
+        - unauthorized_electrical_wiring
+        - staff_not_wear_mask
+      location_constraints:
+        - 重点关注店铺门前、人行道堵塞和室外拉线充电行为
+
+prompts:
+  preliminary:
+    role_block: |
+      你是服务于机器狗巡检后端的城市街景巡检视觉分析模型。
+      你的任务是分析一张巡检图片，判断图中是否存在违规事件或风险事件。
+    scene_activation_block_template: |
+      当前检测范围：
+      - 允许判断的类别：{enabled_categories}
+      - 场景位置约束：{location_constraints}
+      - 开放风险说明：{open_risk_guidance}
+
+      判断规则：
+      - 标准类别判断必须限制在允许判断的类别范围内，除非证据明显支持 open_risk
+      - 在判断空间关系、占道、阻挡、停放位置、店铺边界和充电行为时，必须结合场景位置约束
+    category_focus_block_template: |
+      允许判断的类别说明如下：
+      {category_definitions}
+    reasoning_block: |
+      必须先分析整张图的整体环境，再决定违规类别。
+      不要只根据单个物体下结论，必须结合物体之间以及物体与环境之间的空间关系。
+      如果图中存在多个彼此独立的违规现象，应分别输出多个 candidate，不要合并成一个。
+      segmentation_targets 用于下游 SAM3，必须聚焦于每个 candidate 的关键对象、边界和关系判断区域。
+      如果图像模糊、遮挡、距离过远、裁切严重或信息不完整，应在分析中说明，并降低置信度。
+      如果图中没有明显违规或风险，只输出一个 violation_category="none" 的 candidate。
+    output_contract_block: |
+      你必须只输出 JSON，并严格遵循以下顺序：
+      1. environment_analysis
+      2. scene_elements
+      3. candidates
+
+      每个 candidate 必须包含以下字段，并保持这个顺序：
+      - evidence_reasoning
+      - relation_hint
+      - segmentation_targets
+      - violation_category
+      - open_risk_type
+      - confidence
+
+      输出规则：
+      - violation_category：只能是标准类别、open_risk 或 none
+      - open_risk_type：仅当 violation_category=open_risk 时非空
+      - confidence：0 到 1 之间的浮点数
+      - 不同违规必须分开输出
+      - 不要对同一组证据重复输出多个类别
+      - 如果 violation_category=none，则只能输出一个 candidate，且 segmentation_targets 与 relation_hint 为空
+    user: |
+      请根据当前配置的场景策略分析这张巡检图片，并输出符合要求的 JSON。
+  judge:
+    system: |
+      你是城市街景巡检流程中的第二阶段证据判断模型。
+      你的职责不是重新自由分类整张图，而是判断当前候选类别是否被 SAM3 分割结果图和分割语义所支持。
+    user: |
+      category_code={category_code}
+      mask_labels={mask_labels}
+      relation_hint={relation_hint}
+      evidence_basis_summary={evidence_basis_summary}
+
+category_registry:
+  road_occupying_vendor:
+    definition: 商户或摊贩在店外摆放摊位、货架、货物或临时设施，占用了人行道或车行空间。
+    common_objects:
+      - 摊位
+      - 帐篷
+      - 展示货架
+      - 堆放货物
+      - 店铺边界
+      - 人行道
+      - 车道边缘
+    relation_focus:
+      - 货物或摆放设施明显超出店铺边界
+      - 摊位或货物占用了行人或车辆通行空间
+    exceptions:
+      - 绿化设施
+      - 报刊亭旁边的少量正常陈列
+
+  goods_blocking_road:
+    definition: 货物、材料、广告牌或杂物堆放在人行道上，阻碍行人正常通行。
+    common_objects:
+      - 堆放货物
+      - 建筑材料
+      - 广告牌
+      - 杂物
+      - 店铺入口
+      - 人行道
+    relation_focus:
+      - 物品放置在人行道上
+      - 物品阻挡了行人通道
+    exceptions: []
+
+  unauthorized_electrical_wiring:
+    definition: 电线从店内或室内电源拉到室外，为车辆或设备充电。
+    common_objects:
+      - 电线
+      - 充电器
+      - 电动车
+      - 室外充电位置
+      - 店铺电源位置
+    relation_focus:
+      - 电线连接店内电源和室外车辆
+      - 存在明显的室外拉线充电行为
+    exceptions: []
+
+  motor_vehicle_illegal_parking:
+    definition: 机动车停放在人行道、盲道、公交站区域或其他不允许停车的位置。
+    common_objects:
+      - 汽车
+      - 摩托车
+      - 人行道
+      - 盲道
+      - 公交站区域
+      - 停车线
+      - 非停车区域
+    relation_focus:
+      - 机动车占用了禁止停车区域
+    exceptions: []
+
+  nonmotor_vehicle_illegal_parking:
+    definition: 无人使用的非机动车停放在人行道、盲道或行人通道内，影响正常通行。
+    common_objects:
+      - 电动自行车
+      - 自行车
+      - 三轮车
+      - 人行道
+      - 通行区域边缘
+      - 盲道
+      - 无人看管车辆
+    relation_focus:
+      - 非机动车停放在行人通行区域内
+      - 车辆处于无人使用或无人看管状态
+    exceptions: []
+
+  vagrants_blocking_roadway:
+    definition: 衣着破旧、形象凌乱的人员长时间坐卧在路边或通行区域，影响通行秩序。
+    common_objects:
+      - 人员
+      - 路边
+      - 通行区域
+      - 地面铺位
+    relation_focus:
+      - 人员坐卧在路边或通行区域内
+      - 该位置明显影响周边通行
+    exceptions: []
+
+  begging_blocking_roadway:
+    definition: 携带乞讨相关物品的人员停留在路边或通行区域，占用了通行空间。
+    common_objects:
+      - 人员
+      - 碗
+      - 提示牌
+      - 路边
+      - 通行区域
+    relation_focus:
+      - 人员携带明显乞讨相关物品
+      - 人员停留位置占用了行人通道
+    exceptions: []
+
+  off_leash_dog_nuisance:
+    definition: 行人带狗出行时，犬只没有明显被牵引绳控制。
+    common_objects:
+      - 行人
+      - 宠物狗
+      - 牵引绳
+    relation_focus:
+      - 狗在人员附近活动但没有看到牵引绳
+      - 犬只在公共空间中处于未牵引状态
+    exceptions: []
+
+  staff_not_wear_mask:
+    definition: 餐饮场所工作人员在作业、服务或处理食品时未佩戴口罩。
+    common_objects:
+      - 餐饮店铺
+      - 工作人员
+      - 口罩
+      - 柜台
+      - 食品操作区域
+    relation_focus:
+      - 工作人员位于餐饮经营区域内
+      - 工作人员在作业时未佩戴可见口罩
+    exceptions: []
+
+open_risk_registry:
+  guidance: |
+    如果图中存在明显风险证据，但不符合当前允许判断的标准类别，
+    则输出 violation_category="open_risk"，并给出简洁明确的 open_risk_type。
+  examples:
+    - 起火或冒烟
+    - 倒伏树木或断枝
+    - 大面积积水
+    - 破损井盖或路面塌陷
+    - 裸露基础设施
+    - 倒塌围挡或护栏
+    - 交通事故现场
+    - 施工安全隐患
+    - 路面大型障碍物
+    - 环卫突发情况

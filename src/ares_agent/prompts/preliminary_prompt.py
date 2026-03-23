@@ -20,14 +20,14 @@ CategoryRegistryEntry = CategoryRegistryRule | CategoryRulePayload
 
 
 class CategoryDefinitionRenderer:
-    """Render focused category references for prioritized categories only."""
+    """Render category references for the effective allowed categories only."""
 
     def __init__(self, category_registry: Mapping[str, CategoryRegistryEntry]) -> None:
         self.category_registry = category_registry
 
-    def render(self, priority_categories: list[str]) -> str:
+    def render(self, enabled_categories: list[str]) -> str:
         rendered_rules: list[str] = []
-        for code in priority_categories:
+        for code in enabled_categories:
             rule = self.category_registry.get(code)
             if rule is None:
                 continue
@@ -63,8 +63,10 @@ class PreliminaryPromptAssembler:
             [
                 role_block.strip(),
                 scene_activation_block_template.format(
-                    scene_hint=scene_activation_context.scene_hint,
-                    priority_categories=", ".join(scene_activation_context.priority_categories),
+                    scene_hint="",
+                    priority_categories="",
+                    enabled_categories=", ".join(scene_activation_context.enabled_categories),
+                    location_constraints=", ".join(scene_activation_context.location_constraints),
                     open_risk_guidance=scene_activation_context.open_risk_guidance,
                 ).strip(),
                 category_focus_block_template.format(

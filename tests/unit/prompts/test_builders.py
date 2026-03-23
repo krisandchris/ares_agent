@@ -75,15 +75,15 @@ def test_configurable_prompt_builder_uses_resolver_when_scene_context_not_provid
             return SceneActivationContext(
                 camera_id=camera_id,
                 location=location,
-                priority_categories=["goods_blocking_road"],
-                scene_hint="road-facing camera",
+                enabled_categories=["goods_blocking_road"],
+                location_constraints=["focus on roadside occupation"],
                 open_risk_guidance="If strong evidence suggests uncategorized risk, output open_risk.",
             )
 
     builder = ConfigurableInspectionPromptBuilder(
         preliminary_role_block="ROLE BLOCK",
         preliminary_scene_activation_block_template=(
-            "scene_hint={scene_hint}; priority_categories={priority_categories}; "
+            "enabled_categories={enabled_categories}; location_constraints={location_constraints}; "
             "open_risk_guidance={open_risk_guidance}"
         ),
         preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
@@ -116,8 +116,8 @@ def test_configurable_prompt_builder_uses_resolver_when_scene_context_not_provid
     )
 
     system_text = messages[0]["content"]
-    assert "scene_hint=road-facing camera" in system_text
-    assert "priority_categories=goods_blocking_road" in system_text
+    assert "enabled_categories=goods_blocking_road" in system_text
+    assert "location_constraints=focus on roadside occupation" in system_text
     assert "open_risk_guidance=If strong evidence suggests uncategorized risk, output open_risk." in system_text
     assert "CATEGORY FOCUS" in system_text
     assert "definition: goods on sidewalk" in system_text
@@ -127,7 +127,7 @@ def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapsh
     builder = ConfigurableInspectionPromptBuilder(
         preliminary_role_block="ROLE BLOCK",
         preliminary_scene_activation_block_template=(
-            "scene_hint={scene_hint}\npriority_categories={priority_categories}\nopen_risk_guidance={open_risk_guidance}"
+            "enabled_categories={enabled_categories}\nlocation_constraints={location_constraints}\nopen_risk_guidance={open_risk_guidance}"
         ),
         preliminary_category_focus_block_template="CATEGORY FOCUS\n{category_definitions}",
         preliminary_reasoning_block="REASONING BLOCK",
@@ -139,33 +139,44 @@ def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapsh
             SceneActivationPolicyConfig(
                 camera_defaults={
                     "front": SceneActivationRule(
-                        priority_categories=[
+                        enabled_categories=[
                             "motor_vehicle_illegal_parking",
                             "nonmotor_vehicle_illegal_parking",
                             "goods_blocking_road",
                         ],
-                        scene_hint="road-facing camera",
                     ),
                     "left": SceneActivationRule(
-                        priority_categories=[
+                        enabled_categories=[
                             "staff_not_wear_mask",
                             "goods_blocking_road",
                             "unauthorized_electrical_wiring",
                         ],
-                        scene_hint="storefront-facing camera",
                     ),
                     "right": SceneActivationRule(
-                        priority_categories=[
+                        enabled_categories=[
                             "staff_not_wear_mask",
                             "goods_blocking_road",
                             "unauthorized_electrical_wiring",
                         ],
-                        scene_hint="storefront-facing camera",
                     ),
                 },
                 location_defaults={
-                    "南山路": SceneActivationRule(),
-                    "水坊街": SceneActivationRule(),
+                    "南山路": SceneActivationRule(
+                        enabled_categories=[
+                            "motor_vehicle_illegal_parking",
+                            "goods_blocking_road",
+                            "staff_not_wear_mask",
+                        ],
+                        location_constraints=["focus on roadside occupation"],
+                    ),
+                    "水坊街": SceneActivationRule(
+                        enabled_categories=[
+                            "goods_blocking_road",
+                            "unauthorized_electrical_wiring",
+                            "staff_not_wear_mask",
+                        ],
+                        location_constraints=["focus on storefront frontage"],
+                    ),
                 },
             )
         ),
@@ -232,8 +243,8 @@ def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapsh
         """\
         ROLE BLOCK
 
-        scene_hint=road-facing camera
-        priority_categories=motor_vehicle_illegal_parking, nonmotor_vehicle_illegal_parking, goods_blocking_road
+        enabled_categories=motor_vehicle_illegal_parking, goods_blocking_road
+        location_constraints=focus on roadside occupation
         open_risk_guidance=If obvious risk exists outside prioritized categories, output open_risk.
 
         CATEGORY FOCUS
@@ -241,11 +252,6 @@ def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapsh
           definition: vehicle occupies prohibited area
           common_objects: motor_vehicle, blind_path
           relation_focus: vehicle_occupies_prohibited_area
-          exceptions: none
-        - nonmotor_vehicle_illegal_parking
-          definition: unattended nonmotor vehicle occupies walkway
-          common_objects: e_bike, sidewalk
-          relation_focus: unattended_vehicle_state
           exceptions: none
         - goods_blocking_road
           definition: goods on sidewalk
@@ -261,8 +267,8 @@ def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapsh
         """\
         ROLE BLOCK
 
-        scene_hint=storefront-facing camera
-        priority_categories=staff_not_wear_mask, goods_blocking_road, unauthorized_electrical_wiring
+        enabled_categories=staff_not_wear_mask, goods_blocking_road
+        location_constraints=focus on roadside occupation
         open_risk_guidance=If obvious risk exists outside prioritized categories, output open_risk.
 
         CATEGORY FOCUS
@@ -275,11 +281,6 @@ def test_configurable_prompt_builder_renders_scene_specific_system_prompt_snapsh
           definition: goods on sidewalk
           common_objects: goods, sidewalk
           relation_focus: obstruct_pedestrian_passage
-          exceptions: none
-        - unauthorized_electrical_wiring
-          definition: outdoor charging wire connected to electric vehicle
-          common_objects: wire, charger, electric_vehicle
-          relation_focus: wire_connects_power_to_vehicle
           exceptions: none
 
         REASONING BLOCK
