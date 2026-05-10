@@ -37,9 +37,18 @@ class EventStoreSettings(BaseModel):
     base_dir: Path | None = None
 
 
+class DataEngineSettings(BaseModel):
+    stage1_registry: Path
+    stage1_system_template: Path
+    stage1_user_template: Path
+    stage2_registry: Path
+    stage2_system_template: Path
+    stage2_user_template: Path
+
+
 class OrchestratorSettings(BaseModel):
     enable_async_refine: bool = True
-    chain_mode: Literal["full", "vlm1_only"] = "full"
+    chain_mode: Literal["full", "vlm1_only", "step1_step2"] = "full"
 
 
 class RetrySettings(BaseModel):
@@ -175,6 +184,7 @@ class AppConfig(BaseModel):
     model_clients: ModelClientSettings = ModelClientSettings()
     minio: MinioSettings = MinioSettings()
     review: ReviewSettings = ReviewSettings()
+    data_engine: DataEngineSettings | None = None
 
     @model_validator(mode="after")
     def validate_scene_policy_category_references(self) -> "AppConfig":
@@ -204,6 +214,8 @@ class AppConfig(BaseModel):
     def validate_chain_mode_settings(self) -> "AppConfig":
         if self.orchestrator.chain_mode == "vlm1_only" and self.callback.send_refined:
             raise ValueError("vlm1_only chain_mode requires send_refined=false")
+        if self.orchestrator.chain_mode == "step1_step2" and self.data_engine is None:
+            raise ValueError("step1_step2 chain_mode requires data_engine configuration")
         return self
 
 
@@ -233,6 +245,15 @@ def load_config(path: str | Path) -> AppConfig:
         segmentation_fixture=_resolve_path(base_dir, config.mock_clients.segmentation_fixture),
         evidence_judge_fixture=_resolve_path(base_dir, config.mock_clients.evidence_judge_fixture),
     )
+    if config.data_engine is not None:
+        config.data_engine = DataEngineSettings(
+            stage1_registry=_resolve_path(base_dir, config.data_engine.stage1_registry),
+            stage1_system_template=_resolve_path(base_dir, config.data_engine.stage1_system_template),
+            stage1_user_template=_resolve_path(base_dir, config.data_engine.stage1_user_template),
+            stage2_registry=_resolve_path(base_dir, config.data_engine.stage2_registry),
+            stage2_system_template=_resolve_path(base_dir, config.data_engine.stage2_system_template),
+            stage2_user_template=_resolve_path(base_dir, config.data_engine.stage2_user_template),
+        )
     return config
 
 

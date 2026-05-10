@@ -1,0 +1,50 @@
+请基于原图和以下 STEP1 输出进行第二阶段复核与违规判断。
+
+STEP1 输出如下：
+{{stage1_json}}
+
+请注意：
+- key_relations[*].bbox 均为 0-1000 quantized coordinate；
+- bbox 是 STEP1 给出的 subject 主体框；
+- bbox 不是锚点框；
+- bbox 不是违规区域；
+- 你必须先做可见性与信息缺失评估，再做关系与违规判断。
+
+请严格输出如下 JSON：
+
+{
+  "sample_id": "{{sample_id}}",
+  "fact_verifications": [
+    {
+      "relation_index": 0,
+      "subject": "...",
+      "relation": "...",
+      "object": "...",
+      "bbox": [0, 0, 0, 0],
+
+      "visibility_level": "clear | partial | tiny | blurry | occluded",
+      "information_loss_type": "none | occlusion | boundary_truncation",
+      "key_attributes_visible": ["..."],
+
+      "subject_visible": true,
+      "subject_match": true,
+      "bbox_observation": "...",
+      "global_context_observation": "...",
+      "verification_result": "supported | weakly_supported | unsupported | unclear",
+      "verification_confidence": 0.0
+    }
+  ],
+  "candidates": [
+    {
+      "violation_category": ["no_violation 或具体违规类别"],
+      "evidence_relation_indices": [0],
+      "evidence_reasoning": "...",
+      "relation_hint": "...",
+      "segmentation_targets": ["..."],
+      "confidence": 0.0,
+      "sample_category": "positive samples | negative samples | hard boundary samples"
+    }
+  ]
+}
+
+重要：candidates 必须始终至少输出 1 条。若无违规，输出 violation_category=["no_violation"], sample_category="negative samples"。

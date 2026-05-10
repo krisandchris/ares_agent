@@ -46,6 +46,13 @@ from ares_agent.workflows.inspection_event_workflow import (
     build_inspection_event_workflow,
     build_preliminary_only_workflow,
 )
+from ares_agent.workflows.step1_step2_workflow import build_step1_step2_workflow
+from ares_agent.model_clients.data_engine_clients import _default_requester
+from ares_agent.prompts.data_engine_prompts import (
+    DataEngineStep1PromptBuilder,
+    DataEngineStep2PromptBuilder,
+)
+from ares_agent.services.result_gate import ResultGate
 
 DEFAULT_CONFIG_PATH = Path("config/service_config.example.yaml")
 
@@ -62,6 +69,13 @@ def _build_workflow_from_config(
     image_uri_resolver: ImageUriResolver | None = None,
 ) -> Workflow:
     model_requesters = model_requesters or {}
+    if config.orchestrator.chain_mode == "step1_step2":
+        return _build_step1_step2_workflow(
+            config,
+            callback_sender=callback_sender,
+            model_requesters=model_requesters,
+            image_uri_resolver=image_uri_resolver,
+        )
     if config.orchestrator.chain_mode == "vlm1_only":
         preliminary_client = _build_preliminary_client_from_config(
             config,
@@ -111,6 +125,79 @@ def _build_workflow_from_config(
                 "block_on_preliminary_failure": config.callback.block_on_preliminary_failure,
             }
         },
+    )
+
+
+def _build_step1_step2_workflow(
+    config: AppConfig,
+    *,
+    callback_sender: Sender | None = None,
+    model_requesters: dict[str, Requester] | None = None,
+    image_uri_resolver: ImageUriResolver | None = None,
+) -> Workflow:
+    """Build the Step1 -> Step2 workflow (no SAM3)."""
+    if config.data_engine is None:
+        raise ValueError("step1_step2 chain_mode requires data_engine configuration")
+    if config.model_clients.preliminary is None:
+        raise ValueError("step1_step2 chain_mode requires a VLM endpoint in model_clients.preliminary")
+    model_requesters = model_requesters or {}
+    step1_builder = DataEngineStep1PromptBuilder.from_files(
+        registry_path=config.data_engine.stage1_registry,
+        system_template_path=config.data_engine.stage1_system_template,
+        user_template_path=config.data_engine.stage1_user_template,
+    )
+    step2_builder = DataEngineStep2PromptBuilder.from_files(
+        registry_path=config.data_engine.stage2_registry,
+        system_template_path=config.data_engine.stage2_system_template,
+        user_template_path=config.data_engine.stage2_user_template,
+    )
+    endpoint = _build_http_endpoint(
+        str(config.model_clients.preliminary.base_url),
+        config.model_clients.preliminary.endpoint,
+    )
+    model_name = config.model_clients.preliminary.model_name or "inspection-vlm"
+    timeout_ms = config.model_clients.preliminary.timeout_ms
+
+    def _make_requester(key: str) -> Requester:
+        custom = model_requesters.get(key)
+        if custom is not None:
+            return custom
+        return lambda url, headers, payload: _default_requester(url, headers, payload, timeout_ms=timeout_ms)
+
+    scene_policies_raw: dict = {}
+    if config.scene_policies is not None:
+        scene_policies_raw = {
+            loc: cameras.model_dump() if hasattr(cameras, "model_dump") else cameras
+            for loc, cameras in config.scene_policies.root.items()
+        }
+    result_gate = ResultGate(scene_policies=scene_policies_raw)
+    return build_step1_step2_workflow(
+        step1_prompt_builder=step1_builder,
+        step2_prompt_builder=step2_builder,
+        endpoint=endpoint,
+        model_name=model_name,
+        step1_temperature=config.model_clients.preliminary.temperature or 0.4,
+        step2_temperature=config.model_clients.preliminary.temperature or 0.2,
+        max_tokens=config.model_clients.preliminary.max_tokens,
+        step1_requester=_make_requester("preliminary"),
+        step2_requester=_make_requester("judge"),
+        result_gate=result_gate,
+        sink_plugin=HttpCallbackPlugin(
+            endpoint=str(config.callback.endpoint),
+            auth_token=config.callback.auth_token,
+            timeout_ms=config.callback.timeout_ms,
+            max_attempts=config.callback.retry.max_attempts,
+            backoff_ms=config.callback.retry.backoff_ms,
+            sender=callback_sender,
+        ),
+        runtime_config={
+            "callback": {
+                "send_preliminary": config.callback.send_preliminary,
+                "send_refined": config.callback.send_refined,
+                "block_on_preliminary_failure": config.callback.block_on_preliminary_failure,
+            }
+        },
+        image_uri_resolver=image_uri_resolver,
     )
 
 
