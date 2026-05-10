@@ -1,0 +1,64 @@
+config_files:
+  prompt_config: prompt_config_zh.example.yaml
+
+agent:
+  service_name: street-inspection-agent
+
+logging:
+  enabled: true
+  level: INFO
+  json: true
+  include_request_id: true
+  include_event_id: true
+  log_model_payload_summary: true
+  log_callback_payload_summary: true
+
+orchestrator:
+  enable_async_refine: false
+  chain_mode: step1_step2
+
+callback:
+  plugin: http_callback
+  endpoint: https://backend.example/api/v1/events/callback
+  auth_token:
+  auth_token_env:
+  timeout_ms: 120000
+  retry:
+    max_attempts: 3
+    backoff_ms: 1000
+  send_preliminary: false
+  send_refined: false
+
+mock_clients:
+  preliminary_fixture: ../fixtures/mock_vlm_preliminary/road_occupying_vendor.json
+  segmentation_fixture: ../fixtures/mock_sam3/road_occupying_vendor.json
+  evidence_judge_fixture: ../fixtures/mock_vlm_judge/road_occupying_vendor.json
+
+model_clients:
+  mode: http
+  preliminary:
+    base_url: http://192.168.32.6:8001
+    endpoint: /v1/chat/completions
+    model_name: Qwen3-VL-8B
+    timeout_ms: 120000
+    temperature: 0.2
+    max_tokens: 8192
+
+data_engine:
+  stage1_registry: data_engine/stage1_registry.yaml
+  stage1_system_template: data_engine/stage1_system_core.txt
+  stage1_user_template: data_engine/stage1_user_prompt.txt
+  stage2_registry: data_engine/stage2_rule_registry.yaml
+  stage2_system_template: data_engine/stage2_system_core.txt
+  stage2_user_template: data_engine/stage2_user_prompt.txt
+
+minio:
+  enabled: true
+  endpoint: 112.17.140.44:29000
+  access_key: zhxt
+  secret_key: zhxt@2026
+  secure: false
+  presign_expiry_seconds: 3600
+
+review:
+  enable_manual_review: false

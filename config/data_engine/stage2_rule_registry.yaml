@@ -1,0 +1,64 @@
+violation_categories:
+  - no_violation
+  - nonmotor_vehicle_illegal_parking
+  - motor_vehicle_illegal_parking
+  - goods_blocking_road
+  - road_occupying_vendor
+  - unauthorized_electrical_wiring
+  - vagrants_blocking_roadway
+  - begging_blocking_roadway
+  - staff_not_wear_mask
+  - off_leash_dog_nuisance
+
+bbox_policy:
+  coordinate_type: "0-1000 quantized coordinate"
+  no_denormalization: true
+  target: "subject bbox"
+  prompt_must_include:
+    - "bbox 使用 0-1000 量化坐标"
+    - "bbox 是 subject 主体框"
+    - "bbox 只是视觉定位线索"
+
+visibility_level_enum:
+  - clear
+  - partial
+  - tiny
+  - blurry
+  - occluded
+
+information_loss_type_enum:
+  - none
+  - occlusion
+  - boundary_truncation
+
+verification_result_enum:
+  - supported
+  - weakly_supported
+  - unsupported
+  - unclear
+
+sample_category_enum:
+  - positive samples
+  - negative samples
+  - hard boundary samples
+
+confidence_rules:
+  partial_max_confidence: 0.8
+  weak_supported_max_confidence: 0.75
+
+attribute_rules:
+  require_attribute_for_supported: true
+  examples:
+    electric_vehicle:
+      - wheel
+      - body
+      - handlebar
+    human:
+      - head
+      - body
+    mask_detection:
+      - face
+      - mouth
+    dog:
+      - body
+      - limbs

@@ -1,0 +1,223 @@
+version: "v1.1.0"
+module_name: "stage1_near_field_scene_parsing"
+scene: "urban_street_patrol"
+
+violation_categories:
+  - nonmotor_vehicle_illegal_parking
+  - motor_vehicle_illegal_parking
+  - goods_blocking_road
+  - road_occupying_vendor
+  - unauthorized_electrical_wiring
+  - vagrants_blocking_roadway
+  - begging_blocking_roadway
+  - staff_not_wear_mask
+  - off_leash_dog_nuisance
+
+output_schema:
+  required_fields:
+    - environment_analysis
+    - scene_elements
+    - key_anchors
+    - key_relations
+  relation_item_required_fields:
+    - subject
+    - relation
+    - object
+    - description
+
+anchor_enum:
+  - pedestrian_walkway
+  - tactile_paving
+  - parking_line_or_parking_zone
+  - curb_or_edge
+  - roadway
+  - shop_boundary
+  - counter_or_operation_area
+  - entrance_or_exit
+  - public_area
+
+relation_enum:
+  - touching
+  - near
+  - occupying
+  - crossing_boundary
+  - aligned_along_edge
+  - blocking_walkway
+  - not_blocking_center_path
+  - outside_shop_boundary
+  - inside_operation_area
+  - extending_across_walkway
+  - held_by_person
+  - not_clearly_visible
+
+relation_description_rules:
+  required_elements:
+    - "必须写清主体在图像中的相对方位"
+    - "必须写清主体与锚点的客观空间关系"
+  image_relative_position_terms:
+    - "画面左侧"
+    - "画面右侧"
+    - "画面中部"
+    - "画面中央"
+    - "画面上方"
+    - "画面下方"
+    - "画面左上角"
+    - "画面右上角"
+    - "画面左下角"
+    - "画面右下角"
+    - "左侧"
+    - "右侧"
+    - "中部"
+    - "中央"
+    - "上方"
+    - "下方"
+    - "左上角"
+    - "右上角"
+    - "左下角"
+    - "右下角"
+
+spatial_attention_policy:
+  primary_observation_zone:
+    description: "优先分析图像下方主要通行区域、店铺边界附近、盲道附近、停车线附近、出入口附近的主体"
+  secondary_observation_zone:
+    description: "图像中上部尺寸较大、与关键锚点关系明确的目标可补充分析"
+  background_ignore_zone:
+    description: "远处小目标、纯背景目标、与关键锚点无明显关系的对象默认忽略"
+
+output_limits:
+  default:
+    environment_analysis_max_sentences: 2
+    scene_elements_max_items: 6
+    key_relations_max_items: 4
+  complex_scene:
+    trigger_condition: "主观察区内存在两个及以上高相关主体组，且分属不同观察子任务"
+    environment_analysis_max_sentences: 3
+    scene_elements_max_items: 8
+    key_relations_max_items: 8
+  per_subject_relation_budget:
+    min_relations_per_high_relevance_subject: 1
+    max_relations_per_subject: 3
+
+forbidden_terms:
+  - "违规"
+  - "违停"
+  - "占道经营"
+  - "构成"
+  - "明显违法"
+  - "妨碍无障碍设施"
+  - "属于店员"
+  - "乞讨行为"
+  - "流浪人员"
+  - "应判定"
+  - "最终判断"
+
+observation_policy:
+  vehicle_related:
+    trigger_objects:
+      - bicycle
+      - electric bicycle
+      - shared bicycle
+      - tricycle
+      - car
+      - van
+      - truck
+    anchors:
+      - pedestrian_walkway
+      - tactile_paving
+      - parking_line_or_parking_zone
+      - curb_or_edge
+      - roadway
+    relations:
+      - touching
+      - near
+      - occupying
+      - crossing_boundary
+      - aligned_along_edge
+      - blocking_walkway
+      - not_blocking_center_path
+  goods_vendor_wiring_related:
+    trigger_objects:
+      - goods
+      - debris
+      - merchandise
+      - display rack
+      - table
+      - chair
+      - cable
+      - wire
+      - charger
+      - power strip
+    anchors:
+      - pedestrian_walkway
+      - shop_boundary
+      - entrance_or_exit
+    relations:
+      - occupying
+      - outside_shop_boundary
+      - blocking_walkway
+      - extending_across_walkway
+      - near
+      - not_clearly_visible
+  human_related:
+    trigger_objects:
+      - person
+      - bedding
+      - cardboard
+      - sign board
+      - bowl
+      - mask
+    anchors:
+      - pedestrian_walkway
+      - shop_boundary
+      - counter_or_operation_area
+      - public_area
+    relations:
+      - occupying
+      - blocking_walkway
+      - inside_operation_area
+      - near
+      - not_clearly_visible
+  dog_related:
+    trigger_objects:
+      - dog
+      - leash
+      - person
+    anchors:
+      - pedestrian_walkway
+      - public_area
+    relations:
+      - held_by_person
+      - near
+      - not_clearly_visible
+
+relation_priority:
+  level_1_strong_contact:
+    - touching
+    - crossing_boundary
+    - extending_across_walkway
+    - inside_operation_area
+    - outside_shop_boundary
+    - held_by_person
+  level_2_spatial_occupancy:
+    - occupying
+    - blocking_walkway
+    - aligned_along_edge
+  level_3_weak_or_fallback:
+    - near
+    - not_blocking_center_path
+    - not_clearly_visible
+
+relation_selection_rules:
+  - "touching 优先于 near"
+  - "occupying 优先于 near"
+  - "occupying 与 blocking_walkway 可共存"
+  - "aligned_along_edge 与 not_blocking_center_path 可共存"
+  - "not_clearly_visible 仅用于关键事实无法确认时"
+
+multi_relation_policy:
+  enabled: true
+  max_relations_per_subject: 3
+
+second_stage_dependency_rule:
+  enabled: true
+  description: "Stage-2 evidence_reasoning 只能引用 Stage-1 已出现的主体、锚点、关系和事实描述。"
